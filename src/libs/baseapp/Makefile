@@ -22,7 +22,7 @@ LDFLAGS += $(LDFLAGS_LIBDAEMON) $(LDFLAGS_TF)
 
 LIBS_libfawkesbaseapp = stdc++ fawkescore fawkesutils fawkesconfig \
 			fawkesblackboard fawkesplugin fawkesnetcomm \
-			fawkesaspects fawkeslogging
+			fawkesaspects fawkeslogging fawkessyncpoint
 
 ifeq ($(HAVE_TF),1)
   LIBS_libfawkesbaseapp += fawkestf

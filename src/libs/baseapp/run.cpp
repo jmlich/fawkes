@@ -44,6 +44,7 @@
 #include <plugin/manager.h>
 #include <plugin/net/handler.h>
 #include <aspect/manager.h>
+#include <syncpoint/syncpoint_manager.h>
 #ifdef HAVE_TF
 #  include <tf/transform_listener.h>
 #endif
@@ -82,6 +83,7 @@ Clock                     * clock = NULL;
 SharedMemoryRegistry      * shm_registry;
 InitOptions               * init_options = NULL;
 tf::Transformer           * tf_listener = NULL;
+SyncPointManager          * syncpoint_manager = NULL;
 
 // this is NOT shared to the outside
 FawkesMainThread::Runner  * runner = NULL;
@@ -328,6 +330,8 @@ init(InitOptions options, int & retval)
   aspect_manager     = new AspectManager();
   thread_manager     = new ThreadManager(aspect_manager, aspect_manager);
 
+  syncpoint_manager  = new SyncPointManager();
+
   plugin_manager     = new PluginManager(thread_manager, config,
 					 "/fawkes/meta_plugins/",
 					 options.plugin_module_flags(),
@@ -367,7 +371,8 @@ init(InitOptions options, int & retval)
 					   network_manager->nnresolver(),
 					   network_manager->service_publisher(),
 					   network_manager->service_browser(),
-					   plugin_manager, tf_listener);
+					   plugin_manager, tf_listener,
+					   syncpoint_manager);
 
   retval = 0;
   return true;
