@@ -114,22 +114,6 @@ ColliVisualizationThread::loop()
   grid.cell_width = 0.05;
   grid.cell_height = 0.05;
 
-  // publish roboshape
-  grid.cells.clear();
-  float rad = 0;
-  float radinc = M_PI/180.f;
-  for( unsigned int i=0; i<360; ++i ) {
-    float len = roboshape_->GetRobotLengthforRad( rad );
-    geometry_msgs::Point p;
-    p.x = len * cos(rad);
-    p.y = len * sin(rad);
-    p.z = 0;
-    grid.cells.push_back(p);
-    rad += radinc;
-  }
-  grid.header.stamp = ros::Time::now();
-  pub_roboshape_->publish(grid);
-
   // publish grid cells
   grid.cells.clear();
   nav_msgs::GridCells grid_cells_occ(grid);
@@ -164,6 +148,7 @@ ColliVisualizationThread::loop()
       }
     }
   }
+  grid.header.stamp = ros::Time::now();
   pub_cells_occ_->publish( grid_cells_occ );
   pub_cells_near_->publish( grid_cells_near );
   pub_cells_mid_->publish( grid_cells_mid );
@@ -185,6 +170,22 @@ ColliVisualizationThread::loop()
   grid.header.stamp = ros::Time::now();
   pub_search_path_->publish( grid );
 
+  // publish roboshape
+  grid.header.frame_id = "/base_link";
+  grid.cells.clear();
+  float rad = 0;
+  float radinc = M_PI/180.f;
+  for( unsigned int i=0; i<360; ++i ) {
+    float len = roboshape_->GetRobotLengthforRad( rad );
+    geometry_msgs::Point p;
+    p.x = len * cos(rad);
+    p.y = len * sin(rad);
+    p.z = 0;
+    grid.cells.push_back(p);
+    rad += radinc;
+  }
+  grid.header.stamp = ros::Time::now();
+  pub_roboshape_->publish(grid);
 }
 
 void

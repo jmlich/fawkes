@@ -4,7 +4,7 @@
  *
  *  Created: Fri Oct 18 15:16:23 2013
  *  Copyright  2002  Stefan Jacobs
- *             2013  Bahram Maleki-Fard
+ *             2013-2014  Bahram Maleki-Fard
  ****************************************************************************/
 
 /*  This program is free software; you can redistribute it and/or modify
@@ -49,10 +49,10 @@ class RoboShape
   ///\brief Check if the reading is 'in' the robot
   bool IsRobotReadingforDegree( float angledeg, float length );
 
-  ///\brief return the length of the robot for a specific angle
+  ///\brief return the distance from base-frame to roboshape-edge for a specific angle
   float GetRobotLengthforRad( float anglerad );
 
-  ///\brief return the length of the robot for a specific angle
+  ///\brief return the distance from base-frame to roboshape-edge for a specific angle
   float GetRobotLengthforDegree( float angledeg );
 
   ///\brief Returns the radius of the robot if its round.
@@ -61,23 +61,23 @@ class RoboShape
   ///\brief Returns the maximum radius of the robot if its round.
   float GetCompleteRadius();
 
-  ///\brief Returns the width-x of the angular robot.
+  ///\brief Returns the of the angular robot in x-direction.
   float GetWidthX();
 
-  ///\brief Returns the width-y of the angular robot.
+  ///\brief Returns the of the angular robot in y-direction.
   float GetWidthY();
 
-  ///\brief Returns the complete x width of the angular robot.
+  ///\brief Returns the width of the angular roboshape (robot + extension) in x-direction
   float GetCompleteWidthX();
 
-  ///\brief Returns the complete x width of the angular robot.
+  ///\brief Returns the width of the angular roboshape (robot + extension) in y-direction
   float GetCompleteWidthY();
 
-  ///\brief Returns the laser offset in x direction of the robot.
-  float GetLaserOffsetX();
+  ///\brief Returns the offset of base-frame from robot center in x direction.
+  float GetBaseOffsetX();
 
-  ///\brief Returns the laser offset in y direction of the robot.
-  float GetLaserOffsetY();
+  ///\brief Returns the offset of base-frame from robot center in y direction.
+  float GetBaseOffsetY();
 
   ///\brief Get angle to the front left corner of the robot
   float GetAngleFrontLeft() const;
@@ -111,7 +111,7 @@ private:
 
   // several variables containing information about the robot.
   float m_radius, m_widthX, m_widthY;
-  float m_laserOffsetX, m_laserOffsetY;
+  float m_baseOffsetX, m_baseOffsetY;
   float m_widthAddFront, m_widthAddBack, m_widthAddLeft, m_widthAddRight;
   float m_robotToFront, m_robotToRight, m_robotToBack, m_robotToLeft;
 

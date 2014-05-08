@@ -107,13 +107,13 @@ CLaserOccupancyGrid::CLaserOccupancyGrid( Laser360Interface * laser, Logger* log
 
   m_LaserPosition = point_t(0,0);
 
-  // calculate laser offset from robot center
-  offset_base_.x=0;
-  offset_base_.y=0;
-  offset_laser_.x = m_pRoboShape->GetCompleteWidthX()/2.f - m_pRoboShape->GetRobotLengthforDegree(0);
-  offset_laser_.y = m_pRoboShape->GetCompleteWidthY()/2.f - m_pRoboShape->GetRobotLengthforDegree(90);
-  logger->log_debug("CLaserOccupancyGrid", "Laser (x,y) offset from robo-center is (%f, %f)",
-                    offset_laser_.x, offset_laser_.y);
+  // calculate offset of base-frame from roboshape center (in grid-cells)
+  float offset_base_x = m_pRoboShape->GetCompleteWidthX()/2.f - m_pRoboShape->GetRobotLengthforDegree(0);
+  float offset_base_y = m_pRoboShape->GetCompleteWidthY()/2.f - m_pRoboShape->GetRobotLengthforDegree(90);
+  offset_base_.x= (int)round(offset_base_x*100.f/m_CellHeight);
+  offset_base_.y= (int)round(offset_base_y*100.f/m_CellHeight);
+  logger->log_debug("CLaserOccupancyGrid", "(x,y) offset of base from robo-center is (%f, %f) , (%i, %i) in grid-cells",
+                    offset_base_x, offset_base_y, offset_base_.x, offset_base_.y);
 
 
   logger->log_debug("CLaserOccupancyGrid", "(Constructor): Exiting");
@@ -290,18 +290,6 @@ CLaserOccupancyGrid::GetLaserPosition()
 {
   return m_LaserPosition;
 }
-
-/** Set the offset of base_link from laser.
- * @param x offset in x-direction (in meters)
- * @param y offset in y-direction (in meters)
- */
-void
-CLaserOccupancyGrid::set_base_offset(float x, float y)
-{
-  offset_base_.x = (int)round( (offset_laser_.x + x)*100.f/m_CellHeight ); // # in grid-cells
-  offset_base_.y = (int)round( (offset_laser_.y + y)*100.f/m_CellWidth  );
-}
-
 
 /** Get cell costs.
  * @return struct that contains all the cost values for the occgrid cells

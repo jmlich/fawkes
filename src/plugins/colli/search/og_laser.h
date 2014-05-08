@@ -64,9 +64,6 @@ class CLaserOccupancyGrid : public OccupancyGrid
   ///\brief Get the laser's position in the grid
   point_t GetLaserPosition();
 
-  ///\brief Set the offset of base_link from laser
-  void set_base_offset(float x, float y);
-
   ///\brief Get cell costs
   colli_cell_cost_t get_cell_costs() const;
 
@@ -140,9 +137,7 @@ class CLaserOccupancyGrid : public OccupancyGrid
   bool cfg_obstacle_inc_ ;          /**< increasing obstacles or not */
   bool cfg_force_elipse_obstacle_;  /**< the used shape for obstacles */
 
-  /** Offsets to robot center */
-  cart_coord_2d_t offset_laser_; /**< in meters */
-  point_t         offset_base_; /**< in grid cells */
+  point_t offset_base_; /**< offset of base-frame to roboshape center, in grid cells */
 };
 
 } // namespace fawkes

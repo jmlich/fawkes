@@ -148,16 +148,16 @@ plugins/colli:
       # Dimensions of angular robot
       width_x: 0.38
       width_y: 0.4
-      # The Lasers offset from back/left, seen from behind left
-      laser_offset_x_from_back: 0.062
-      laser_offset_y_from_left: 0.2
+      # The offset of base-frame from robot-center
+      base_offset_x: 0.077
+      base_offset_y: 0.0
 
     round:
       # For round roboter
       radius: 0.3
-      # The Lasers offset from center
-      laser_offset_x_from_middle: 0.0
-      laser_offset_y_from_middle: 0.0
+      # The offset of base-frame from robot-center
+      base_offset_x: 0.0
+      base_offset_y: 0.0
 
     extension:
       # Extension of the shape
