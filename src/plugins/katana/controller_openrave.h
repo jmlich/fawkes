@@ -3,7 +3,7 @@
  *  controller_openrave.h - OpenRAVE Controller class for katana arm
  *
  *  Created: Sat Jan 07 16:10:54 2012
- *  Copyright  2012  Bahram Maleki-Fard, AllemaniACs RoboCup Team
+ *  Copyright  2012-2014  Bahram Maleki-Fard
  *
  ****************************************************************************/
 
@@ -26,10 +26,10 @@
 #include "controller.h"
 
 #include <core/utils/refptr.h>
-#include <plugins/openrave/aspect/openrave.h>
 
 #ifdef HAVE_OPENRAVE
-#include <openrave/openrave.h>
+ #include <plugins/openrave/types.h>
+ #include <openrave/openrave.h>
 #endif
 
 #include <string>
@@ -41,6 +41,8 @@ namespace fawkes {
 #if 0 /* just to make Emacs auto-indent happy */
 }
 #endif
+
+class OpenRaveConnector;
 
 class KatanaControllerOpenrave : public KatanaController
 {
@@ -91,12 +93,12 @@ class KatanaControllerOpenrave : public KatanaController
   double __x, __y, __z;
   double __phi, __theta, __psi;
 
-  fawkes::OpenRaveConnector* 		__openrave;
-  fawkes::OpenRaveEnvironment*		__OR_env;
-  fawkes::OpenRaveRobot*		__OR_robot;
-  fawkes::OpenRaveManipulator*		__OR_manip;
-  OpenRAVE::EnvironmentBasePtr 		__env;
-  OpenRAVE::RobotBasePtr     		__robot;
+  fawkes::OpenRaveConnector*            __openrave;
+  fawkes::OpenRaveEnvironmentPtr        __OR_env;
+  fawkes::OpenRaveRobotPtr              __OR_robot;
+  fawkes::OpenRaveManipulatorPtr        __OR_manip;
+  OpenRAVE::EnvironmentBasePtr          __env;
+  OpenRAVE::RobotBasePtr                __robot;
   OpenRAVE::RobotBase::ManipulatorPtr   __manip;
 
   bool __initialized;

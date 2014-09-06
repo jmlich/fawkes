@@ -4,6 +4,7 @@
  *
  *  Created: Wed Jun 10 11:20:18 2009
  *  Copyright  2006-2009  Tim Niemueller [www.niemueller.de]
+ *             2012-2014  Bahram Maleki-Fard
  *
  ****************************************************************************/
 
@@ -26,9 +27,6 @@
 #include <core/threading/thread.h>
 #include <logging/logger.h>
 #include <core/utils/refptr.h>
-#include <interfaces/KatanaInterface.h>
-
-#include <unistd.h>
 
 namespace fawkes {
   class KatanaController;
@@ -39,7 +37,7 @@ class KatanaMotionThread
 {
  public:
   KatanaMotionThread(const char *thread_name,
-		     fawkes::RefPtr<fawkes::KatanaController> katana, fawkes::Logger *logger);
+                     fawkes::RefPtr<fawkes::KatanaController> katana, fawkes::Logger *logger);
 
   bool finished() const;
   virtual void reset();
@@ -54,7 +52,6 @@ class KatanaMotionThread
   fawkes::Logger          *_logger;
   /** Set to the desired error code on error */
   unsigned int             _error_code;
-
 };
 
 

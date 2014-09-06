@@ -4,6 +4,7 @@
  *
  *  Created: Mon Jun 08 17:59:57 2009
  *  Copyright  2006-2009  Tim Niemueller [www.niemueller.de]
+ *             2010-2014  Bahram Maleki-Fard
  *
  ****************************************************************************/
 
@@ -23,14 +24,6 @@
 #ifndef __PLUGINS_KATANA_ACT_THREAD_H_
 #define __PLUGINS_KATANA_ACT_THREAD_H_
 
-#include "motion_thread.h"
-#include "calib_thread.h"
-#include "goto_thread.h"
-#include "goto_openrave_thread.h"
-#include "gripper_thread.h"
-#include "sensacq_thread.h"
-#include "motor_control_thread.h"
-
 #include <core/threading/thread.h>
 #include <aspect/clock.h>
 #include <aspect/blocked_timing.h>
@@ -39,12 +32,12 @@
 #include <aspect/blackboard.h>
 #include <aspect/tf.h>
 #ifdef HAVE_OPENRAVE
-#  include <plugins/openrave/aspect/openrave.h>
+ #include <plugins/openrave/aspect/openrave.h>
 #endif
 #include <blackboard/interface_listener.h>
 #include <core/utils/refptr.h>
 #ifdef USE_TIMETRACKER
-#  include <utils/time/tracker.h>
+ #include <utils/time/tracker.h>
 #endif
 #include <string>
 #include <memory>
@@ -54,6 +47,14 @@ namespace fawkes {
   class Time;
   class KatanaController;
 }
+
+class KatanaSensorAcquisitionThread;
+class KatanaMotionThread;
+class KatanaCalibrationThread;
+class KatanaGotoThread;
+class KatanaGripperThread;
+class KatanaMotorControlThread;
+class KatanaGotoOpenRaveThread;
 
 class KatanaActThread
 : public fawkes::Thread,
@@ -79,7 +80,7 @@ class KatanaActThread
 
   // For BlackBoardInterfaceListener
   virtual bool bb_interface_message_received(fawkes::Interface *interface,
-					     fawkes::Message *message) throw();
+                                             fawkes::Message *message) throw();
 
   void update_sensor_values();
 
@@ -92,7 +93,7 @@ class KatanaActThread
   void update_sensors(bool refresh);
   void update_motors(bool refresh);
   void start_motion(fawkes::RefPtr<KatanaMotionThread> motion_thread,
-		    unsigned int msgid, const char *logmsg, ...);
+                    unsigned int msgid, const char *logmsg, ...);
 
  private:
   fawkes::KatanaInterface *__katana_if;

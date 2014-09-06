@@ -3,7 +3,7 @@
  *  motor_control_thread.cpp - Katana direct motor encoder/value control thread
  *
  *  Created: Sun Mar 13 14:44:24 2011
- *  Copyright  2011  Bahram Maleki-Fard
+ *  Copyright  2011-2014  Bahram Maleki-Fard
  *
  ****************************************************************************/
 
@@ -24,7 +24,10 @@
 #include "controller.h"
 #include "exception.h"
 
+#include <interfaces/KatanaInterface.h>
+
 #include <cstdlib>
+#include <unistd.h>
 
 /** @class KatanaMotorControlThread "goto_thread.h"
  * Katana motor control thread.
@@ -38,9 +41,10 @@
  * @param poll_interval_ms interval in ms between two checks if the
  * final position has been reached
  */
-KatanaMotorControlThread::KatanaMotorControlThread(fawkes::RefPtr<fawkes::KatanaController> katana,
-				   fawkes::Logger *logger,
-				   unsigned int poll_interval_ms)
+KatanaMotorControlThread::KatanaMotorControlThread(
+                            fawkes::RefPtr<fawkes::KatanaController> katana,
+                            fawkes::Logger *logger,
+                            unsigned int poll_interval_ms)
   : KatanaMotionThread("KatanaMotorControlThread", katana, logger)
 {
   __poll_interval_usec = poll_interval_ms * 1000;
@@ -55,7 +59,7 @@ KatanaMotorControlThread::KatanaMotorControlThread(fawkes::RefPtr<fawkes::Katana
 void
 KatanaMotorControlThread::set_encoder(unsigned int nr, int value, bool inc)
 {
-  __nr	    = nr;
+  __nr      = nr;
   __encoder = value;
 
   __is_encoder = true;
@@ -70,7 +74,7 @@ KatanaMotorControlThread::set_encoder(unsigned int nr, int value, bool inc)
 void
 KatanaMotorControlThread::set_angle(unsigned int nr, float value, bool inc)
 {
-  __nr	    = nr;
+  __nr    = nr;
   __angle = value;
 
   __is_encoder = false;

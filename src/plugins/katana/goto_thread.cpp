@@ -4,6 +4,7 @@
  *
  *  Created: Wed Jun 10 11:45:31 2009
  *  Copyright  2006-2009  Tim Niemueller [www.niemueller.de]
+ *             2011-2014  Bahram Maleki-Fard
  *
  ****************************************************************************/
 
@@ -24,7 +25,10 @@
 #include "controller.h"
 #include "exception.h"
 
+#include <interfaces/KatanaInterface.h>
+
 #include <cstdlib>
+#include <unistd.h>
 
 /** @class KatanaGotoThread "goto_thread.h"
  * Katana linear goto thread.
@@ -39,8 +43,8 @@
  * final position has been reached
  */
 KatanaGotoThread::KatanaGotoThread(fawkes::RefPtr<fawkes::KatanaController> katana,
-				   fawkes::Logger *logger,
-				   unsigned int poll_interval_ms)
+                                   fawkes::Logger *logger,
+                                   unsigned int poll_interval_ms)
   : KatanaMotionThread("KatanaGotoThread", katana, logger)
 {
   __poll_interval_usec = poll_interval_ms * 1000;
@@ -57,7 +61,7 @@ KatanaGotoThread::KatanaGotoThread(fawkes::RefPtr<fawkes::KatanaController> kata
  */
 void
 KatanaGotoThread::set_target(float x, float y, float z,
-			     float phi, float theta, float psi)
+                             float phi, float theta, float psi)
 {
   __x     = x;
   __y     = y;
@@ -114,7 +118,7 @@ KatanaGotoThread::once()
   }
 
   _logger->log_debug(name(), "Position (%f,%f,%f, %f,%f,%f) reached",
-		       __x, __y, __z, __phi, __theta, __psi);
+                       __x, __y, __z, __phi, __theta, __psi);
 
   _finished = true;
 }

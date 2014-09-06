@@ -4,7 +4,7 @@
  *
  *  Created: Wed Jun 10 11:44:24 2009
  *  Copyright  2006-2009  Tim Niemueller [www.niemueller.de]
- *                  2010  Bahram Maleki-Fard
+ *             2011-2014  Bahram Maleki-Fard
  *
  ****************************************************************************/
 
@@ -26,17 +26,16 @@
 
 #include "motion_thread.h"
 
+#ifdef HAVE_OPENRAVE
+ #include <plugins/openrave/types.h>
+#endif
+
 #include <vector>
 #include <string>
 
-#include <plugins/openrave/aspect/openrave.h>
-
-#ifdef HAVE_OPENRAVE
 namespace fawkes {
-  class OpenRaveRobot;
-  class OpenRaveManipulator;
+  class OpenRaveConnector;
 }
-#endif
 
 /** class KatanaGotoOpenRaveThread */
 class KatanaGotoOpenRaveThread : public KatanaMotionThread
@@ -44,12 +43,14 @@ class KatanaGotoOpenRaveThread : public KatanaMotionThread
 #ifdef HAVE_OPENRAVE
 
  public:
-  KatanaGotoOpenRaveThread(fawkes::RefPtr<fawkes::KatanaController> katana, fawkes::Logger *logger, fawkes::OpenRaveConnector* openrave,
-		   unsigned int poll_interval_ms,
-                   std::string robot_file,
-                   std::string arm_model,
-                   bool autoload_IK,
-                   bool use_viewer);
+  KatanaGotoOpenRaveThread(fawkes::RefPtr<fawkes::KatanaController> katana,
+                           fawkes::Logger *logger,
+                           fawkes::OpenRaveConnector* openrave,
+                           unsigned int poll_interval_ms,
+                           std::string robot_file,
+                           std::string arm_model,
+                           bool autoload_IK,
+                           bool use_viewer);
 
   virtual void once();
   virtual void init();
@@ -73,8 +74,10 @@ class KatanaGotoOpenRaveThread : public KatanaMotionThread
   static const std::string DEFAULT_PLANNERPARAMS_STRAIGHT;
 
  private:
-  fawkes::OpenRaveRobot*        __OR_robot;
-  fawkes::OpenRaveManipulator*  __OR_manip;
+  fawkes::OpenRaveConnector* _openrave;
+
+  fawkes::OpenRaveRobotPtr        __OR_robot;
+  fawkes::OpenRaveManipulatorPtr  __OR_manip;
 
   std::string                                   __target_object;
   std::vector< std::vector<float> >*            __target_traj;
@@ -94,8 +97,6 @@ class KatanaGotoOpenRaveThread : public KatanaMotionThread
   bool                  __is_arm_extension;
   std::string           __plannerparams;
   std::string           __plannerparams_straight;
-
-  fawkes::OpenRaveConnector*    _openrave;
 
   float __x, __y, __z;
   float __phi, __theta, __psi, __theta_error;

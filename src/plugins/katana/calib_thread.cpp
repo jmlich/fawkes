@@ -4,6 +4,7 @@
  *
  *  Created: Tue Jun 09 18:37:02 2009
  *  Copyright  2006-2009  Tim Niemueller [www.niemueller.de]
+ *             2012-2014  Bahram Maleki-Fard
  *
  ****************************************************************************/
 
@@ -23,6 +24,8 @@
 #include "calib_thread.h"
 #include "controller.h"
 
+#include <interfaces/KatanaInterface.h>
+
 /** @class KatanaCalibrationThread "calib_thread.h"
  * Katana calibration thread.
  * This thread calibrates the arm when started and is finished when the calibration
@@ -35,7 +38,7 @@
  * @param logger logger
  */
 KatanaCalibrationThread::KatanaCalibrationThread(fawkes::RefPtr<fawkes::KatanaController> katana,
-						 fawkes::Logger *logger)
+                                                 fawkes::Logger *logger)
   : KatanaMotionThread("KatanaCalibrationThread", katana, logger)
 {
 }
