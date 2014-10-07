@@ -1,6 +1,6 @@
 
 /***************************************************************************
- *  slow_forward_drive_mode.cpp - Implementation of drive-mode "slow forward"
+ *  forward_drive_mode.cpp - Implementation of drive-mode "forward"
  *
  *  Created: Fri Oct 18 15:16:23 2013
  *  Copyright  2002  Stefan Jacobs
@@ -20,7 +20,7 @@
  *  Read the full text in the LICENSE.GPL file in the doc directory.
  */
 
-#include "slow_forward_drive_mode.h"
+#include "forward_drive_mode.h"
 #include <utils/math/common.h>
 
 namespace fawkes
@@ -29,34 +29,34 @@ namespace fawkes
 }
 #endif
 
-/** @class CSlowForwardDriveModule <plugins/colli/drive_modes/slow_forward_drive_mode.h>
- * This is the SlowForward drive-module, for slow forward only movements.
+/** @class CForwardDriveModule <plugins/colli/drive_modes/forward_drive_mode.h>
+ * This is the Forward drive-module, for forward only movements.
  */
 
 /** Constructor.
  * @param logger The fawkes logger
  * @param config The fawkes configuration
  */
-CSlowForwardDriveModule::CSlowForwardDriveModule(Logger* logger, Configuration* config)
+CForwardDriveModule::CForwardDriveModule(Logger* logger, Configuration* config)
  : CAbstractDriveMode(logger, config)
 {
-  logger_->log_debug("CSlowForwardDriveModule", "(Constructor): Entering...");
-  m_DriveModeName = NavigatorInterface::SlowForward;
+  logger_->log_debug("CForwardDriveModule", "(Constructor): Entering...");
+  m_DriveModeName = NavigatorInterface::Forward;
 
-  m_MaxTranslation = config_->get_float( "/plugins/colli/drive_mode/slow/max_trans" );
-  m_MaxRotation    = config_->get_float( "/plugins/colli/drive_mode/slow/max_rot" );
+  m_MaxTranslation = config_->get_float( "/plugins/colli/drive_mode/normal/max_trans" );
+  m_MaxRotation    = config_->get_float( "/plugins/colli/drive_mode/normal/max_rot" );
 
-  logger_->log_debug("CSlowForwardDriveModule", "(Constructor): Exiting...");
+  logger_->log_debug("CForwardDriveModule", "(Constructor): Exiting...");
 }
 
 
 /** Destruct your local values here.
  */
-CSlowForwardDriveModule::~CSlowForwardDriveModule()
+CForwardDriveModule::~CForwardDriveModule()
 {
-  logger_->log_debug("CSlowForwardDriveModule", "(Destructor): Entering...");
+  logger_->log_debug("CForwardDriveModule", "(Destructor): Entering...");
   m_DriveModeName = NavigatorInterface::MovingNotAllowed;
-  logger_->log_debug("CSlowForwardDriveModule", "(Destructor): Exiting...");
+  logger_->log_debug("CForwardDriveModule", "(Destructor): Exiting...");
 }
 
 
@@ -77,7 +77,7 @@ CSlowForwardDriveModule::~CSlowForwardDriveModule()
  *  @return A desired rotation.
  */
 float
-CSlowForwardDriveModule::SlowForward_Curvature( float dist_to_target, float dist_to_trajec, float alpha,
+CForwardDriveModule::Forward_Curvature( float dist_to_target, float dist_to_trajec, float alpha,
                                                 float cur_trans, float cur_rot )
 {
   return 1.2*alpha;
@@ -95,7 +95,7 @@ CSlowForwardDriveModule::SlowForward_Curvature( float dist_to_target, float dist
  *  @return A desired translation.
  */
 float
-CSlowForwardDriveModule::SlowForward_Translation( float dist_to_target, float dist_to_front, float alpha,
+CForwardDriveModule::Forward_Translation( float dist_to_target, float dist_to_front, float alpha,
                                                   float cur_trans, float cur_rot, float des_rot )
 {
   if( fabs(alpha) >= M_PI_2 ) {
@@ -184,10 +184,11 @@ CSlowForwardDriveModule::SlowForward_Translation( float dist_to_target, float di
  *  Those values are questioned after an Update() was called.
  */
 void
-CSlowForwardDriveModule::Update()
+CForwardDriveModule::Update()
 {
-  m_ProposedTranslation = 0.0;
-  m_ProposedRotation    = 0.0;
+  m_ProposedTranslationX = 0.;
+  m_ProposedTranslationY = 0.;
+  m_ProposedRotation     = 0.;
 
   float dist_to_target = sqrt( sqr(m_LocalTargetX) + sqr(m_LocalTargetY) );
   float alpha          = atan2( m_LocalTargetY, m_LocalTargetX );
@@ -197,15 +198,15 @@ CSlowForwardDriveModule::Update()
   // last time border check............. IMPORTANT!!!
   // because the motorinstructor just tests robots physical borders.
   if ( dist_to_target < 0.04 ) {
-    m_ProposedTranslation = 0.0;
+    m_ProposedTranslationX = 0.0;
     m_ProposedRotation    = 0.0;
 
   } else {
     // Calculate ideal rotation and translation
-    m_ProposedRotation = SlowForward_Curvature( dist_to_target, dist_to_trajec, alpha,
+    m_ProposedRotation = Forward_Curvature( dist_to_target, dist_to_trajec, alpha,
                                                 m_RoboTrans, m_RoboRot );
 
-    m_ProposedTranslation = SlowForward_Translation( dist_to_target, dist_to_trajec, alpha,
+    m_ProposedTranslationX = Forward_Translation( dist_to_target, dist_to_trajec, alpha,
                                                      m_RoboTrans, m_RoboRot, m_ProposedRotation );
 
     // Track relation between proposed-rotation and max-rotation. Use this to adjust the
@@ -214,7 +215,7 @@ CSlowForwardDriveModule::Update()
     float trans_correction = fabs( m_MaxRotation / m_ProposedRotation );
     if( trans_correction < 1.f ) {
       // for now we simply reduce the translation quadratically to how much the rotation has been reduced
-      m_ProposedTranslation *= trans_correction * trans_correction;
+      m_ProposedTranslationX *= trans_correction * trans_correction;
     }
 
     // Check rotation limits.
@@ -225,7 +226,7 @@ CSlowForwardDriveModule::Update()
       m_ProposedRotation = -m_MaxRotation;
 
     // Check translation limits
-    m_ProposedTranslation = std::max( 0.f, std::min (m_ProposedTranslation, m_MaxTranslation) );
+    m_ProposedTranslationX = std::max( 0.f, std::min (m_ProposedTranslationX, m_MaxTranslation) );
     // maybe consider adjusting rotation again, in case we had to reduce the translation
   }
 }

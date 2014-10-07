@@ -56,7 +56,7 @@ class CLaserOccupancyGrid : public OccupancyGrid
   ~CLaserOccupancyGrid();
 
   ///\brief Put the laser readings in the occupancy grid
-  void UpdateOccGrid( int midX, int midY, float inc, float vel );
+  float UpdateOccGrid( int midX, int midY, float inc, float vx, float vy );
 
   ///\brief Reset all old readings and forget about the world state!
   void ResetOld();
@@ -91,6 +91,10 @@ class CLaserOccupancyGrid : public OccupancyGrid
 
   void updateLaser();
 
+  float obstacle_in_path_distance( float vx, float vy );
+
+  void validate_old_laser_points(cart_coord_2d_t pos_robot, cart_coord_2d_t pos_new_laser_point);
+
   std::vector< LaserPoint >* transformLaserPoints(std::vector< LaserPoint >& laserPoints, tf::StampedTransform& transform);
 
   /** Integrate historical readings to the current occgrid. */
@@ -113,6 +117,7 @@ class CLaserOccupancyGrid : public OccupancyGrid
   std::string m_reference_frame;
   std::string m_laser_frame;
   Logger* logger_;
+  bool cfg_write_spam_debug;
 
   fawkes::Laser360Interface *if_laser_;
   CRoboShape_Colli *m_pRoboShape; /**< my roboshape */
@@ -137,8 +142,16 @@ class CLaserOccupancyGrid : public OccupancyGrid
   /** Laser concerned settings */
   float m_MinimumLaserLength, m_ObstacleDistance;
 
+  int cfg_emergency_stop_beams_used;  /**< number of beams that are used to calculate the min distance to obstacle */
+
   bool cfg_obstacle_inc_ ;          /**< increasing obstacles or not */
   bool cfg_force_elipse_obstacle_;  /**< the used shape for obstacles */
+
+  bool  cfg_delete_invisible_old_obstacles_; /**< delete old invalid obstables or not */
+  int   cfg_delete_invisible_old_obstacles_angle_min_ ;  /**< the min angle for old obstacles */
+  int   cfg_delete_invisible_old_obstacles_angle_max_ ;  /**< the max angle for old obstacles */
+  float m_angle_min_;   /**< the angle min in rad */
+  float m_angle_range_; /**< the angle range from min - max */
 
   /** Offsets to robot center */
   cart_coord_2d_t offset_laser_; /**< in meters */

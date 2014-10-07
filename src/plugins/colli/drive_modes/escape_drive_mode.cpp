@@ -90,8 +90,9 @@ CEscapeDriveModule::Update()
   // This is only called, if we recently stopped...
   logger_->log_debug("CEscapeDriveModule", "CEscapeDriveModule( Update ): Calculating ESCAPING...");
 
-  m_ProposedTranslation = 0.0;
-  m_ProposedRotation    = 0.0;
+  m_ProposedTranslationX  = 0.;
+  m_ProposedTranslationY  = 0.;
+  m_ProposedRotation      = 0.;
 
   FillNormalizedReadings();
   SortNormalizedReadings();
@@ -103,40 +104,40 @@ CEscapeDriveModule::Update()
   bool turnRightAllowed = TurnRightAllowed();
 
   if (dangerFront)
-    logger_->log_warn("CEscapeDriveModule", "DANGER IN FRONT");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IN FRONT");
 
   if (dangerBack)
-    logger_->log_warn("CEscapeDriveModule", "DANGER IN BACK");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IN BACK");
 
   if (CheckDanger(m_vLeftFront))
-    logger_->log_warn("CEscapeDriveModule", "DANGER IN LEFT FRONT");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IN LEFT FRONT");
 
   if (CheckDanger(m_vLeftBack))
-    logger_->log_warn("CEscapeDriveModule", "DANGER IN LEFT BACK");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IN LEFT BACK");
 
   if (CheckDanger(m_vRightFront))
-    logger_->log_warn("CEscapeDriveModule", "DANGER IN RIGHT FRONT");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IN RIGHT FRONT");
 
   if (CheckDanger(m_vRightBack))
-    logger_->log_warn("CEscapeDriveModule", "DANGER IN RIGHT BACK");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IN RIGHT BACK");
 
   if (!turnLeftAllowed)
-    logger_->log_warn("CEscapeDriveModule", "DANGER IF TURNING LEFT!!!");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IF TURNING LEFT!!!");
 
   if (!turnRightAllowed)
-    logger_->log_warn("CEscapeDriveModule", "DANGER IF TURNING RIGHT!!!");
+    logger_->log_debug("CEscapeDriveModule", "DANGER IF TURNING RIGHT!!!");
 
 
   if ( dangerFront && dangerBack && turnRightAllowed ) {
-    m_ProposedTranslation = 0.0;
+    m_ProposedTranslationX = 0.0;
     m_ProposedRotation = -m_MaxRotation;
 
   } else if ( dangerFront && dangerBack && turnLeftAllowed ) {
-    m_ProposedTranslation = 0.0;
+    m_ProposedTranslationX = 0.0;
     m_ProposedRotation = m_MaxRotation;
 
   } else if (!dangerFront && dangerBack) {
-    m_ProposedTranslation = m_MaxTranslation;
+    m_ProposedTranslationX = m_MaxTranslation;
 
     if ( (turnRightAllowed) && (m_LocalTargetY <= m_RoboY) )
       m_ProposedRotation =  -m_MaxRotation;
@@ -144,7 +145,7 @@ CEscapeDriveModule::Update()
       m_ProposedRotation = m_MaxRotation;
 
   } else if (dangerFront && !dangerBack) {
-    m_ProposedTranslation = -m_MaxTranslation;
+    m_ProposedTranslationX = -m_MaxTranslation;
 
     if ( (turnRightAllowed) && (m_LocalTargetY <= m_RoboY) )
       m_ProposedRotation =  -m_MaxRotation;
@@ -154,9 +155,9 @@ CEscapeDriveModule::Update()
   } else if ( !dangerFront && !dangerBack ) {
     // depending on target coordinates, decide which direction to escape to
     if ( m_TargetX > m_RoboX )
-      m_ProposedTranslation = m_MaxTranslation;
+      m_ProposedTranslationX = m_MaxTranslation;
     else
-      m_ProposedTranslation = -m_MaxTranslation;
+      m_ProposedTranslationX = -m_MaxTranslation;
 
     if ( (turnRightAllowed) && (m_LocalTargetY <= m_RoboY) )
       m_ProposedRotation =  -m_MaxRotation;
@@ -170,9 +171,9 @@ CEscapeDriveModule::Update()
  * @param laser_points vector of laser points
  */
 void
-CEscapeDriveModule::setLaserData( std::vector<CEscapeDriveModule::LaserPoint>& laser_points )
+CEscapeDriveModule::setLaserData( std::vector<polar_coord_2d_t>& laser_points )
 {
-  m_laser_points = laser_points;
+  laser_points_ = laser_points;
 }
 
 /* ************************************************************************** */
@@ -184,10 +185,10 @@ CEscapeDriveModule::FillNormalizedReadings()
 {
   m_vNormalizedReadings.clear();
 
-  for ( int i = 0; i < (int)m_laser_points.size(); i++ ) {
-    float rad    = normalize_rad( m_laser_points.at( i ).angle );
+  for ( unsigned int i = 0; i < laser_points_.size(); i++ ) {
+    float rad    = normalize_rad( laser_points_.at( i ).phi );
     float sub    = m_pRoboShape->GetRobotLengthforRad( rad );
-    float length = m_laser_points.at( i ).length;
+    float length = laser_points_.at( i ).r;
     m_vNormalizedReadings.push_back( length - sub );
   }
 }
@@ -214,12 +215,12 @@ CEscapeDriveModule::SortNormalizedReadings()
      &&(ang_br < ang_mr) && (ang_mr < ang_fr) ))
     logger_->log_error("RoboShape", "Angles are bad!!!");
 
-  int i = 0;
+  unsigned int i = 0;
   float rad = 0.f;
 
-  while ( i < (int)m_laser_points.size() ) {
-    if( m_laser_points.at(i).length > 0. ) {
-      rad = normalize_rad( m_laser_points.at(i).angle );
+  while ( i < laser_points_.size() ) {
+    if( laser_points_.at(i).r > 0.01f ) {
+      rad = normalize_rad( laser_points_.at(i).phi );
 
       if( rad < ang_fl || rad >= ang_fr )
         m_vFront.push_back( m_vNormalizedReadings[i] );

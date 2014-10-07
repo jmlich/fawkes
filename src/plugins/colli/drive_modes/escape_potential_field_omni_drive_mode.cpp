@@ -1,6 +1,6 @@
 
 /***************************************************************************
- *  escape_potential_field_drive_mode.cpp - Implementation of drive-mode "escape"
+ *  escape_potential_field_omni_drive_mode.cpp - Implementation of drive-mode "escape"
  *
  *  Created: Tue Mar 25 17:24:18 2014
  *  Copyright  2014  Tobias Neumann
@@ -19,7 +19,7 @@
  *  Read the full text in the LICENSE.GPL file in the doc directory.
  */
 
-#include "escape_potential_field_drive_mode.h"
+#include "escape_potential_field_omni_drive_mode.h"
 #include "../search/og_laser.h"
 #include "../common/types.h"
 
@@ -31,7 +31,7 @@ namespace fawkes
 }
 #endif
 
-/** @class CEscapePotentialFieldDriveModule <plugins/colli/drive_modes/escape_potential_field_drive_mode.h>
+/** @class CEscapePotentialFieldOmniDriveModule <plugins/colli/drive_modes/escape_potential_field_omni_drive_mode.h>
  * Class Escape-Drive-Module. This module is called, if an escape is neccessary.
  * It should try to maximize distance to the disturbing obstacle.
  */
@@ -40,10 +40,10 @@ namespace fawkes
  * @param logger The fawkes logger
  * @param config The fawkes configuration
  */
-CEscapePotentialFieldDriveModule::CEscapePotentialFieldDriveModule( Logger* logger, Configuration* config )
+CEscapePotentialFieldOmniDriveModule::CEscapePotentialFieldOmniDriveModule( Logger* logger, Configuration* config )
  : CAbstractDriveMode(logger, config)
 {
-  logger_->log_debug("CEscapeDriveModule", "(Constructor): Entering...");
+  logger_->log_debug("CEscapePotentialFieldOmniDriveModule", "(Constructor): Entering...");
   m_DriveModeName = NavigatorInterface::ESCAPE;
   m_pOccGrid = NULL;
   m_robot_pos.x = 0;
@@ -55,16 +55,16 @@ CEscapePotentialFieldDriveModule::CEscapePotentialFieldDriveModule( Logger* logg
 
   cfg_write_spam_debug = config_->get_bool( "/plugins/colli/write_spam_debug" );
 
-  logger_->log_debug("CEscapeDriveModule", "(Constructor): Exiting...");
+  logger_->log_debug("CEscapePotentialFieldOmniDriveModule", "(Constructor): Exiting...");
 }
 
 
 /** Destruct your local values here.
  */
-CEscapePotentialFieldDriveModule::~CEscapePotentialFieldDriveModule()
+CEscapePotentialFieldOmniDriveModule::~CEscapePotentialFieldOmniDriveModule()
 {
-  logger_->log_debug("CEscapeDriveModule", "(Destructor): Entering...");
-  logger_->log_debug("CEscapeDriveModule", "(Destructor): Exiting...");
+  logger_->log_debug("CEscapePotentialFieldOmniDriveModule", "(Destructor): Entering...");
+  logger_->log_debug("CEscapePotentialFieldOmniDriveModule", "(Destructor): Exiting...");
 }
 
 /**
@@ -74,7 +74,7 @@ CEscapePotentialFieldDriveModule::~CEscapePotentialFieldDriveModule()
  * @param roboY   robot position on the grid in y
  */
 void
-CEscapePotentialFieldDriveModule::setGridInformation( CLaserOccupancyGrid* occGrid, int roboX, int roboY )
+CEscapePotentialFieldOmniDriveModule::setGridInformation( CLaserOccupancyGrid* occGrid, int roboX, int roboY )
 {
   m_pOccGrid = occGrid;
   m_robot_pos.x = roboX;
@@ -103,13 +103,13 @@ CEscapePotentialFieldDriveModule::setGridInformation( CLaserOccupancyGrid* occGr
  *  Those values are questioned after an Update() was called.
  */
 void
-CEscapePotentialFieldDriveModule::Update()
+CEscapePotentialFieldOmniDriveModule::Update()
 {
   static unsigned int cell_cost_occ = m_pOccGrid->get_cell_costs().occ;
 
   // This is only called, if we recently stopped...
   if (cfg_write_spam_debug) {
-    logger_->log_debug("CEscapeDriveModule", "CEscapeDriveModule( Update ): Calculating ESCAPING...");
+    logger_->log_debug("CEscapePotentialFieldOmniDriveModule", "CEscapePotentialFieldOmniDriveModule( Update ): Calculating ESCAPING...");
   }
 
   m_ProposedTranslationX  = 0.;
@@ -147,93 +147,50 @@ CEscapePotentialFieldDriveModule::Update()
   target.phi = atan2(target_y, target_x);
 
   if (cfg_write_spam_debug) {
-    logger_->log_debug("CEscapePotentialFieldDriveModule","Target vector: phi: %f\t%f", target.phi, target.r);
+    logger_->log_debug("CEscapePotentialFieldOmniDriveModule","Target vector: phi: %f\t%f", target.phi, target.r);
   }
 
   // decide route
-  float angle_difference = 0.2;
+  float angle_difference = M_PI_2 - 0.2;
   float angle     = normalize_mirror_rad(target.phi);
   float angle_abs = fabs( angle );
 
   bool turn = true;
   float turn_direction  = 0;
-  float drive_direction = 0;
+  float drive_part_x    = 1;
+  float drive_part_y    = 0;
 
-  if ( angle_abs > angle_difference/* && angle_abs < M_PI - angle_difference*/ ) {    //just turn
+  if ( angle_abs > angle_difference ) {                 // just turn
     turn = true;
 
-//    if (angle_abs <= (M_PI_2 + 0.2 * m_turn)) {      //turn to 0
-      m_turn =  1.0;
-      if (angle < 0) {
-        turn_direction = -1.0;
-      } else {
-        turn_direction =  1.0;
-      }
-/*    } else {                                        //turn to PI
-      m_turn = -1.0;
-      if (angle < 0) {
-        turn_direction =  1.0;
-      } else {
-        turn_direction = -1.0;
-      }
-    }*/
-  } else {                                                                        //drive
+    m_turn =  1.0;
+    if (angle < 0) {
+      turn_direction = -1.0;
+    } else {
+      turn_direction =  1.0;
+    }
+  } else {                                              // drive
     turn = false;
 
-//    if (angle_abs <= angle_difference) {                 //forward
-      drive_direction =  1.0;
-/*    } else if (angle_abs >= M_PI - angle_difference){    //backward
-      drive_direction = -1.0;
-    } else {
-      drive_direction = 0.0;
-      logger_->log_error("CEscapePotentialFieldDriveModule","Should drive, but don't know the direction");
-    }*/
+    drive_part_x = std::cos( target.phi );
+    drive_part_y = std::sin( target.phi );
   }
 
   if ( turn ) {
     if (cfg_write_spam_debug) {
-      logger_->log_debug("CEscapePotentialFieldDriveModule","Turn %f", turn_direction);
+      logger_->log_debug("CEscapePotentialFieldOmniDriveModule","Turn %f", turn_direction);
     }
     m_ProposedRotation = turn_direction * m_MaxRotation;
   } else {
     if (cfg_write_spam_debug) {
-      logger_->log_debug("CEscapePotentialFieldDriveModule","Drive %f", drive_direction);
+      logger_->log_debug("CEscapePotentialFieldOmniDriveModule","Drive ( %f , %f )", drive_part_x, drive_part_y);
     }
-    m_ProposedTranslationX = drive_direction * m_MaxTranslation;
+    m_ProposedTranslationX = drive_part_x * m_MaxTranslation;
+    m_ProposedTranslationY = drive_part_y * m_MaxTranslation;
+    if ( fabs(turn_direction) > 0.2 ) {
+      m_ProposedRotation = turn_direction * m_MaxRotation;
+    }
   }
-
-//  if ( angle_abs > angle_difference && angle_abs < M_PI - angle_difference ) {    //just turn
-//    if (angle_abs <= M_PI_2) {      //turn to 0
-//      logger_->log_debug("CEscapePotentialFieldDriveModule","Turn to 0");
-//      if (angle < 0) {
-//        logger_->log_debug("CEscapePotentialFieldDriveModule","negative");
-//        m_ProposedRotation = -m_MaxRotation;
-//      } else {
-//        logger_->log_debug("CEscapePotentialFieldDriveModule","positive");
-//        m_ProposedRotation =  m_MaxRotation;
-//      }
-//    } else {                        //turn to PI
-//      logger_->log_debug("CEscapePotentialFieldDriveModule","Turn to PI");
-//      if (angle < 0) {
-//        logger_->log_debug("CEscapePotentialFieldDriveModule","positive");
-//        m_ProposedRotation =  m_MaxRotation;
-//      } else {
-//        logger_->log_debug("CEscapePotentialFieldDriveModule","negative");
-//        m_ProposedRotation = -m_MaxRotation;
-//      }
-//    }
-//  } else {                                                                          //drive and turn
-//    if (angle_abs <= angle_difference) {                 //forward
-//      logger_->log_debug("CEscapePotentialFieldDriveModule","Drive forward");
-//      m_ProposedTranslation =  m_MaxTranslation;
-//    } else if (angle_abs >= M_PI - angle_difference){    //backward
-//      logger_->log_debug("CEscapePotentialFieldDriveModule","Drive backward");
-//      m_ProposedTranslation = -m_MaxTranslation;
-//    } else {
-//      logger_->log_debug("CEscapePotentialFieldDriveModule","Should drive, but don't know the direction");
-//    }
-//  }
-
 }
 
 

@@ -62,14 +62,17 @@ public:
   void Update( bool escape = false );
 
   ///\brief Returns the proposed translation. After an update.
-  float GetProposedTranslation();
+  float GetProposedTranslationX();
+
+  ///\brief Returns the proposed translation. After an update.
+  float GetProposedTranslationY();
 
   ///\brief Returns the proposed rotation. After an update.
   float GetProposedRotation();
 
   void setGridInformation( CLaserOccupancyGrid* occGrid, int roboX, int roboY );
 
-  void setLaserData( std::vector<CEscapeDriveModule::LaserPoint>& laser_point );
+  void setLaserData( std::vector<fawkes::polar_coord_2d_t>& laser_points );
 
 private:
 
@@ -90,17 +93,22 @@ private:
   float m_LocalTrajecX, m_LocalTrajecY;
 
   // local copies of the proposed values
-  float m_ProposedTranslation;
+  float m_ProposedTranslationX;
+  float m_ProposedTranslationY;
   float m_ProposedRotation;
 
   // an escape flag
   int m_EscapeFlag;
+
+  fawkes::colli_drive_restriction_t drive_restriction_;
 
 
   /* ************************************************************************ */
   /* PRIVATE METHODS                                                          */
   /* ************************************************************************ */
 
+  void addDriveModesDifferential();
+  void addDriveModesOmnidirectional();
 };
 
 } // namespace fawkes

@@ -53,10 +53,10 @@ class CAbstractDriveMode
   void SetCurrentRoboPos( float roboX, float roboY, float roboOri );
 
   ///\brief Sets the current robo speed.
-  void SetCurrentRoboSpeed( float roboTrans, float roboRot );
+  void SetCurrentRoboSpeed( float roboTrans, float roboTransX, float roboTransY, float roboRot );
 
   ///\brief Set the colli mode values for each drive mode.
-  void SetCurrentColliMode( bool orient, bool stop );
+  void SetCurrentColliMode( fawkes::NavigatorInterface::OrientationMode orient, bool stop );
 
   ///\brief Set the local targetpoint found by the search.
   void SetLocalTarget( float localTargetX, float localTargetY );
@@ -71,8 +71,11 @@ class CAbstractDriveMode
   ///\brief Calculate the proposed settings which are asked for afterwards.
   virtual void Update() = 0;
 
-  ///\brief Returns the proposed translation
-  float GetProposedTranslation();
+  ///\brief Returns the proposed x translation
+  float GetProposedTranslationX();
+
+  ///\brief Returns the proposed y translation
+  float GetProposedTranslationY();
 
   ///\brief Returns the proposed rotatio
   float GetProposedRotation();
@@ -95,6 +98,8 @@ class CAbstractDriveMode
   float m_RoboOri;    /**< current robo ori */
 
   float m_RoboTrans;  /**< current robo translation velocity */
+  float m_RoboTransX; /**< current robo x translation velocity */
+  float m_RoboTransY; /**< current robo y translation velocity */
   float m_RoboRot;    /**< current robo rotation velocity */
 
   float m_LocalTargetX;  /**< local target x */
@@ -103,11 +108,12 @@ class CAbstractDriveMode
   float m_LocalTrajecX;  /**< local trajectory x */
   float m_LocalTrajecY;  /**< local trajectory y*/
 
-  bool m_OrientAtTarget; /**< flag if orienting necessary */
+  fawkes::NavigatorInterface::OrientationMode m_OrientMode; /**< orient mode of nav if */
   bool m_StopAtTarget;   /**< flag if stopping on or after target */
 
-  float m_ProposedTranslation; /**< proposed translation setting for next timestep */
-  float m_ProposedRotation;    /**< proposed rotation setting for next timestep */
+  float m_ProposedTranslationX; /**< proposed x translation setting for next timestep */
+  float m_ProposedTranslationY; /**< proposed y translation setting for next timestep */
+  float m_ProposedRotation;     /**< proposed rotation setting for next timestep */
 
   fawkes::NavigatorInterface::DriveMode m_DriveModeName;  /**< the drive mode name */
 
@@ -142,7 +148,8 @@ CAbstractDriveMode::CAbstractDriveMode(fawkes::Logger* logger, fawkes::Configura
    config_( config )
 {
   logger_->log_debug("CAbstractDriveMode", "(Constructor): Entering...");
-  m_ProposedTranslation = 0.0;
+  m_ProposedTranslationX = 0.0;
+  m_ProposedTranslationY = 0.0;
   m_ProposedRotation = 0.0;
   m_DriveModeName = NavigatorInterface::MovingNotAllowed;
 
@@ -170,14 +177,24 @@ CAbstractDriveMode::~CAbstractDriveMode()
 }
 
 
-/** Returns the proposed translation which was calculated previously in
+/** Returns the proposed x translation which was calculated previously in
  *  'Update()' which has to be implemented!
  * @return The proposed translation
  */
 inline float
-CAbstractDriveMode::GetProposedTranslation()
+CAbstractDriveMode::GetProposedTranslationX()
 {
-  return m_ProposedTranslation;
+  return m_ProposedTranslationX;
+}
+
+/** Returns the proposed y translation which was calculated previously in
+ *  'Update()' which has to be implemented!
+ * @return The proposed translation
+ */
+inline float
+CAbstractDriveMode::GetProposedTranslationY()
+{
+  return m_ProposedTranslationY;
 }
 
 /** Returns the proposed rotation which was calculated previously in
@@ -225,10 +242,12 @@ CAbstractDriveMode::SetCurrentRoboPos( float roboX, float roboY, float roboOri )
  * @param roboRot The robot rotation velocity
  */
 inline void
-CAbstractDriveMode::SetCurrentRoboSpeed( float roboTrans, float roboRot )
+CAbstractDriveMode::SetCurrentRoboSpeed( float roboTrans, float roboTransX, float roboTransY, float roboRot )
 {
-  m_RoboTrans = roboTrans;
-  m_RoboRot   = roboRot;
+  m_RoboTransX = roboTransX;
+  m_RoboTransY = roboTransY;
+  m_RoboTrans  = roboTrans;
+  m_RoboRot    = roboRot;
 }
 
 /** Set the colli mode values for each drive mode.
@@ -237,10 +256,10 @@ CAbstractDriveMode::SetCurrentRoboSpeed( float roboTrans, float roboRot )
  * @param stop Stop at target position?
  */
 inline void
-CAbstractDriveMode::SetCurrentColliMode( bool orient, bool stop )
+CAbstractDriveMode::SetCurrentColliMode( fawkes::NavigatorInterface::OrientationMode orient, bool stop )
 {
-  m_OrientAtTarget = orient;
-  m_StopAtTarget   = stop;
+  m_OrientMode    = orient;
+  m_StopAtTarget  = stop;
 }
 
 
@@ -324,13 +343,9 @@ CAbstractDriveMode::GuaranteeTransStop( float distance,
 
 //  logger_->log_debug("CAbstractDriveMode","GuaranteeTransStop: distance needed to stop - distance to goal: %f - %f = %f", distance_to_stop, distance, distance_to_stop - distance);
   if (distance_to_stop >= distance) {
-    float value = std::max( 0.f, current_trans - m_cMaxTransDec );
-    return value;
+    return 0.;
   } else {
-    float value = std::min( current_trans + m_cMaxTransAcc, desired_trans );
-    // Use this if you are very cautions:
-    //float value = std::min( current_trans + std::min(m_cMaxTransDec, m_cMaxTransAcc), desired_trans );
-    return value;
+    return desired_trans;
   }
 //
 //  // dividing by 10 because we're called at 10Hz (TODO: use config value!!)

@@ -106,6 +106,7 @@ class ColliThread
 
   fawkes::CSelectDriveMode*       m_pSelectDriveMode;  // the drive mode selection module
   fawkes::CBaseMotorInstruct*     m_pMotorInstruct;    // the motor instructor module
+  fawkes::CBaseMotorInstruct*     m_pEmergencyMotorInstruct;  // the emergency motor instructor module
 
   ColliVisualizationThread*       vis_thread_;         // the VisualizationThread
 
@@ -122,8 +123,14 @@ class ColliThread
   fawkes::cart_coord_2d_t  m_LocalTarget;   // the local target (relative)
   fawkes::cart_coord_2d_t  m_LocalTrajec;   // the local trajec (relative)
 
-  float m_ProposedTranslation;  // the proposed translation that should be realized in MotorInstruct
-  float m_ProposedRotation;     // the proposed rotation that should be realized in MotorInstruct
+  float m_ProposedTranslationX;   // the proposed x translation that should be realized in MotorInstruct
+  float m_ProposedTranslationY;   // the proposed y translation that should be realized in MotorInstruct
+  float m_ProposedRotation;       // the proposed rotation that should be realized in MotorInstruct
+  bool cfg_write_spam_debug;
+  bool cfg_emergency_stop_used;    // true if emergency stop is used
+  float cfg_emergency_threshold_distance; // threshold distance if emergency stop triggers
+  float cfg_emergency_threshold_velocity; // threshold velocity if emergency stop triggers
+  float cfg_emergency_velocity_max;       // if emergency stop triggers, this is the max velocity
 
   fawkes::colli_state_t m_ColliStatus;     // representing current colli status
   bool target_new_;
@@ -150,6 +157,8 @@ class ColliThread
   fawkes::colli_escape_mode_t         cfg_escape_mode;
   fawkes::colli_motor_instruct_mode_t cfg_motor_instruct_mode;
 
+  float cfg_max_velocity_; /**< The maximum allowd velocity */
+
   std::string cfg_frame_base_;    /**< The frame of the robot's base */
   std::string cfg_frame_laser_;   /**< The frame of the laser */
 
@@ -163,6 +172,13 @@ class ColliThread
 
   fawkes::cart_coord_2d_t laser_to_base_; /**< The distance from laser to base */
   bool laser_to_base_valid_;              /**< Do we have a valid distance from laser to base? */
+
+  // manually adjust the frequency on how often the loop should be processed
+  unsigned int loop_count_;
+  unsigned int loop_count_trigger_;
+
+  float distance_to_next_target_; /**< the distance to the next target in drive direction*/
+
 
   /* ************************************************************************ */
   /* PRIVATE METHODS                                                          */

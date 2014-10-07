@@ -27,6 +27,7 @@
 #endif
 
 #include "drive_modes/select_drive_mode.h"
+#include "drive_realization/emergency_motor_instruct.h"
 #include "drive_realization/linear_motor_instruct.h"
 #include "drive_realization/quadratic_motor_instruct.h"
 #include "search/og_laser.h"
@@ -82,6 +83,8 @@ ColliThread::init()
   cfg_min_rot_dist_         = config->get_float((cfg_prefix + "min_rot_distance").c_str());
   cfg_target_pre_pos_       = config->get_float((cfg_prefix + "pre_position_distance").c_str());
 
+  cfg_max_velocity_         = config->get_float((cfg_prefix + "max_velocity").c_str());
+
   cfg_frame_base_  = config->get_string((cfg_prefix + "frame/base").c_str());
   cfg_frame_laser_ = config->get_string((cfg_prefix + "frame/laser").c_str());
 
@@ -89,6 +92,13 @@ ColliThread::init()
   cfg_iface_laser_        = config->get_string((cfg_prefix + "interface/laser").c_str());
   cfg_iface_colli_        = config->get_string((cfg_prefix + "interface/colli").c_str());
   cfg_iface_read_timeout_ = config->get_float((cfg_prefix + "interface/read_timeout").c_str());
+
+  cfg_write_spam_debug    = config->get_bool((cfg_prefix + "write_spam_debug").c_str());
+
+  cfg_emergency_stop_used           = config->get_bool((cfg_prefix + "emergency_stopping/enabled").c_str());
+  cfg_emergency_threshold_distance  = config->get_float((cfg_prefix + "emergency_stopping/threshold_distance").c_str());
+  cfg_emergency_threshold_velocity  = config->get_float((cfg_prefix + "emergency_stopping/threshold_velocity").c_str());
+  cfg_emergency_velocity_max        = config->get_float((cfg_prefix + "emergency_stopping/max_vel").c_str());
 
   std::string escape_mode = config->get_string((cfg_prefix + "drive_mode/default_escape").c_str());
   if ( escape_mode.compare("potential_field") == 0 ) {
@@ -120,6 +130,7 @@ ColliThread::init()
     m_oldAnglesToTarget.push_back( 0.0 );
 
   srand( time( NULL ) );
+  distance_to_next_target_ = 1000;
 
   logger->log_debug(name(), "(init): Entering initialization ..." );
 
@@ -152,8 +163,9 @@ ColliThread::init()
   // setup timer for colli-frequency
   timer_ = new TimeWait(clock, 1e6 / m_ColliFrequency);
 
-  m_ProposedTranslation = 0.0;
-  m_ProposedRotation    = 0.0;
+  m_ProposedTranslationX  = 0.;
+  m_ProposedTranslationY  = 0.;
+  m_ProposedRotation      = 0.;
 
   target_new_ = false;
   escape_count = 0;
@@ -332,10 +344,12 @@ ColliThread::loop()
        || abs(if_motor_->vy()) > 0.01f
        || abs(if_motor_->omega()) > 0.01f ) {
         // only stop movement, if we are moving
-        m_pMotorInstruct->Drive( 0.0, 0.0 );
+        m_pMotorInstruct->Drive( 0.0, 0.0, 0.0 );
       } else {
         // movement has stopped, we are "final" now
         colli_data_.final = true;
+        // send one final stop, just to make sure we really stop
+        m_pMotorInstruct->Drive( 0.0, 0.0, 0.0 );
       }
     }
 
@@ -434,8 +448,9 @@ void
 ColliThread::colli_execute_()
 {
   // to be on the sure side of life
-  m_ProposedTranslation = 0.0;
-  m_ProposedRotation    = 0.0;
+  m_ProposedTranslationX  = 0.;
+  m_ProposedTranslationY  = 0.;
+  m_ProposedRotation      = 0.;
 
   // Update state machine
   UpdateColliStateMachine();
@@ -443,8 +458,9 @@ ColliThread::colli_execute_()
   // nothing is to do
   if (m_ColliStatus == NothingToDo) {
     m_pLaserOccGrid->ResetOld();
-    m_ProposedTranslation = 0.0;
-    m_ProposedRotation    = 0.0;
+    m_ProposedTranslationX  = 0.;
+    m_ProposedTranslationY  = 0.;
+    m_ProposedRotation      = 0.;
     if( abs(if_motor_->vx()) <= 0.01f
      && abs(if_motor_->vy()) <= 0.01f
      && abs(if_motor_->omega()) <= 0.01f ) {
@@ -469,7 +485,8 @@ ColliThread::colli_execute_()
 
     // Check, if one of our positions (robo-, laser-gridpos is not valid) => Danger!
     if( CheckEscape() == true || escape_count > 0 ) {
-      if( m_pMotorInstruct->GetMotorDesiredTranslation() == 0.0
+      if( m_pMotorInstruct->GetMotorDesiredTranslationX() == 0.0
+       && m_pMotorInstruct->GetMotorDesiredTranslationY() == 0.0
        && m_pMotorInstruct->GetMotorDesiredRotation() == 0.0 ) {
         m_pLaserOccGrid->ResetOld();
       }
@@ -483,35 +500,43 @@ ColliThread::colli_execute_()
         else {
           int rnd = (int)((rand())/(float)(RAND_MAX)) * 10; // + 5;
           escape_count = rnd;
-          logger->log_warn(name(), "Escape: new round with %i", rnd);
+          if (cfg_write_spam_debug) {
+            logger->log_debug(name(), "Escape: new round with %i", rnd);
+          }
         }
 
-        logger->log_warn(name(), "Escape mode, escaping!");
+        if (cfg_write_spam_debug) {
+          logger->log_debug(name(), "Escape mode, escaping!");
+        }
         m_pSelectDriveMode->SetLocalTarget( m_LocalTarget.x, m_LocalTarget.y );
         if ( cfg_escape_mode == fawkes::colli_escape_mode_t::potential_field ) {
           m_pSelectDriveMode->setGridInformation(m_pLaserOccGrid, m_RoboGridPos.x, m_RoboGridPos.y);
-        } else if ( cfg_escape_mode == fawkes::colli_escape_mode_t::potential_field ) {
+        } else {
           if_laser_->read();
 
-          std::vector<CEscapeDriveModule::LaserPoint> laser_points;
+          std::vector<polar_coord_2d_t> laser_points;
           laser_points.reserve(if_laser_->maxlenof_distances());
 
-          int angle_inc = 2.0 * M_PI / if_laser_->maxlenof_distances();
+          float angle_inc = 2.0 * M_PI / if_laser_->maxlenof_distances();
 
-          for ( int i = 0; (int)if_laser_->maxlenof_distances() > i; ++i ) {
-            CEscapeDriveModule::LaserPoint point( if_laser_->distances(i), angle_inc * i );
-            laser_points.push_back(point);
+          polar_coord_2d_t laser_point;
+          for ( unsigned int i = 0; i < if_laser_->maxlenof_distances(); ++i ) {
+            laser_point.r = if_laser_->distances(i);
+            laser_point.phi = angle_inc * i;
+            laser_points.push_back(laser_point);
           }
           m_pSelectDriveMode->setLaserData(laser_points);
         }
         m_pSelectDriveMode->Update( true );  // <-- this calls the ESCAPE mode!
-        m_ProposedTranslation = m_pSelectDriveMode->GetProposedTranslation();
+        m_ProposedTranslationX = m_pSelectDriveMode->GetProposedTranslationX();
+        m_ProposedTranslationY = m_pSelectDriveMode->GetProposedTranslationY();
         m_ProposedRotation    = m_pSelectDriveMode->GetProposedRotation();
 
       } else {
         logger->log_warn(name(), "Escape mode, but not allowed!");
-        m_ProposedTranslation = 0.0;
-        m_ProposedRotation    = 0.0;
+        m_ProposedTranslationX  = 0.;
+        m_ProposedTranslationY  = 0.;
+        m_ProposedRotation      = 0.;
         escape_count = 0;
       }
 
@@ -519,7 +544,8 @@ ColliThread::colli_execute_()
       // only orienting to do and moving possible
 
       if (m_ColliStatus == OrientAtTarget) {
-        m_ProposedTranslation = 0.0;
+        m_ProposedTranslationX  = 0.;
+        m_ProposedTranslationY  = 0.;
         // turn faster if angle-diff is high
         //m_ProposedRotation    = 1.5*normalize_mirror_rad( if_colli_target_->GetTargetOri() -
         m_ProposedRotation    = 1.0*normalize_mirror_rad( if_colli_target_->dest_ori() -
@@ -552,8 +578,9 @@ ColliThread::colli_execute_()
           m_pSelectDriveMode->SetLocalTarget( m_LocalTarget.x, m_LocalTarget.y );
           m_pSelectDriveMode->SetLocalTrajec( m_LocalTrajec.x, m_LocalTrajec.y );
           m_pSelectDriveMode->Update();
-          m_ProposedTranslation = m_pSelectDriveMode->GetProposedTranslation();
-          m_ProposedRotation    = m_pSelectDriveMode->GetProposedRotation();
+          m_ProposedTranslationX  = m_pSelectDriveMode->GetProposedTranslationX();
+          m_ProposedTranslationY  = m_pSelectDriveMode->GetProposedTranslationY();
+          m_ProposedRotation      = m_pSelectDriveMode->GetProposedRotation();
 
         } else {
           // stop
@@ -562,8 +589,9 @@ ColliThread::colli_execute_()
           m_LocalTarget.y = 0.f;
           m_LocalTrajec.x = 0.f;
           m_LocalTrajec.y = 0.f;
-          m_ProposedTranslation = 0.f;
-          m_ProposedRotation    = 0.f;
+          m_ProposedTranslationX  = 0.;
+          m_ProposedTranslationY  = 0.;
+          m_ProposedRotation      = 0.;
           m_pLaserOccGrid->ResetOld();
         }
 
@@ -575,10 +603,33 @@ ColliThread::colli_execute_()
 
   }
 
-  logger->log_debug(name(), "I want to realize %f , %f", m_ProposedTranslation, m_ProposedRotation);
+  if (cfg_write_spam_debug) {
+    logger->log_debug(name(), "I want to realize %f , %f , %f", m_ProposedTranslationX, m_ProposedTranslationY, m_ProposedRotation);
+  }
 
-  // Realize drive mode proposal with realization module
-  m_pMotorInstruct->Drive( m_ProposedTranslation, m_ProposedRotation );
+  // calculate if emergency stop is needed
+  if (    cfg_emergency_stop_used
+      &&  distance_to_next_target_ < cfg_emergency_threshold_distance
+      &&  m_pMotorInstruct->GetMotorCurrentTranslation() > cfg_emergency_threshold_velocity ) {
+    float max_v = cfg_emergency_velocity_max;
+
+    float part_x = 0;
+    float part_y = 0;
+    if ( ! (m_ProposedTranslationX == 0 && m_ProposedTranslationY == 0) ) {
+      part_x = m_ProposedTranslationX / ( ( fabs(m_ProposedTranslationX) + fabs(m_ProposedTranslationY) ) );
+      part_y = m_ProposedTranslationY / ( ( fabs(m_ProposedTranslationX) + fabs(m_ProposedTranslationY) ) );
+    }
+
+    m_ProposedTranslationX = part_x * max_v;
+    m_ProposedTranslationY = part_y * max_v;
+
+    logger->log_error(name(), "Emergency slow down: %f , %f , %f", m_ProposedTranslationX, m_ProposedTranslationY, m_ProposedRotation);
+
+    m_pEmergencyMotorInstruct->Drive( m_ProposedTranslationX, m_ProposedTranslationY, m_ProposedRotation );
+  } else {  // else send normal message
+    // Realize drive mode proposal with realization module
+    m_pMotorInstruct->Drive( m_ProposedTranslationX, m_ProposedTranslationY, m_ProposedRotation );
+  }
 }
 
 
@@ -636,6 +687,11 @@ ColliThread::InitializeModules()
                                                                        logger,
                                                                        config );
   }
+
+  m_pEmergencyMotorInstruct = (CBaseMotorInstruct *)new CEmergencyMotorInstruct( if_motor_,
+                                                                                 m_ColliFrequency,
+                                                                                 logger,
+                                                                                 config );
 
   // AFTER MOTOR INSTRUCT: the motor propose values object
   m_pSelectDriveMode = new CSelectDriveMode( m_pMotorInstruct, if_colli_target_, logger, config, cfg_escape_mode );
@@ -711,7 +767,8 @@ ColliThread::UpdateColliStateMachine()
   float targetY = if_colli_target_->dest_y();
   float targetO = if_colli_target_->dest_ori();
 
-  bool  orient = if_colli_target_->is_orient_at_target();
+  bool  orient = ( if_colli_target_->orientation_mode() == fawkes::NavigatorInterface::OrientationMode::OrientAtTarget
+                && std::isfinite(if_colli_target_->dest_ori()) );
 
   float targetDist = distance(targetX, targetY, curPosX, curPosY);
 
@@ -791,7 +848,7 @@ ColliThread::UpdateColliStateMachine()
   if( orient && ( targetDist >= cfg_min_long_dist_prepos_ ) ) { // case (1)
     // We approach a point prior to the target, to adjust the orientation a little
     float pre_pos_dist = cfg_target_pre_pos_;
-    if ( m_pMotorInstruct->GetUserDesiredTranslation() < 0 )
+    if ( m_pMotorInstruct->GetUserDesiredTranslationX() < 0 )
       pre_pos_dist = -pre_pos_dist;
 
     m_TargetPointX = targetX - ( pre_pos_dist * cos(targetO) );
@@ -828,6 +885,10 @@ ColliThread::UpdateColliStateMachine()
 void
 ColliThread::UpdateOwnModules()
 {
+  float vx, vy, v;
+  vx = m_pMotorInstruct->GetMotorDesiredTranslationX();
+  vy = m_pMotorInstruct->GetMotorDesiredTranslationY();
+
   if ( !cfg_obstacle_inc_ ) {
     // do not increase cell size
     m_pLaserOccGrid->setCellWidth( (int)m_OccGridCellWidth );
@@ -836,16 +897,16 @@ ColliThread::UpdateOwnModules()
   } else {
     // set the cell size according to the current speed
     m_pLaserOccGrid->setCellWidth( (int)std::max( (int)m_OccGridCellWidth,
-                                                  (int)(5*fabs(m_pMotorInstruct->GetMotorDesiredTranslation())+3) ) );
+                                                  (int)(5*fabs( v )+3) ) );
     m_pLaserOccGrid->setCellHeight((int)std::max( (int)m_OccGridCellHeight,
-                                                  (int)(5*fabs(m_pMotorInstruct->GetMotorDesiredTranslation())+3) ) );
+                                                  (int)(5*fabs( v )+3) ) );
   }
 
   // Calculate discrete position of the laser
   int laserpos_x = (int)(m_pLaserOccGrid->getWidth() / 2);
   int laserpos_y = (int)(m_pLaserOccGrid->getHeight() / 2);
 
-  laserpos_x -= (int)( m_pMotorInstruct->GetMotorDesiredTranslation()*m_pLaserOccGrid->getWidth() / (2*3.0) );
+  laserpos_x -= (int)( vx * m_pLaserOccGrid->getWidth() / (2*3.0) );
   laserpos_x  = max ( laserpos_x, 10 );
   laserpos_x  = min ( laserpos_x, (int)(m_pLaserOccGrid->getWidth()-10) );
 
@@ -910,8 +971,8 @@ ColliThread::UpdateOwnModules()
   }
 
   // update the occgrid...
-  m_pLaserOccGrid->UpdateOccGrid( laserpos_x, laserpos_y, 2*m_RoboIncrease,
-                                  m_pMotorInstruct->GetMotorDesiredTranslation() );
+  distance_to_next_target_ = 1000;
+  distance_to_next_target_ = m_pLaserOccGrid->UpdateOccGrid( laserpos_x, laserpos_y, m_RoboIncrease, vx, vy );
 
   // update the positions
   m_LaserGridPos.x = laserpos_x;

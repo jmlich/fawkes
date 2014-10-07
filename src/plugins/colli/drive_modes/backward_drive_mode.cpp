@@ -1,6 +1,6 @@
 
 /***************************************************************************
- *  fast_backward_drive_mode.cpp - Implementation of drive-mode "fast backward"
+ *  backward_drive_mode.cpp - Implementation of drive-mode "backward"
  *
  *  Created: Fri Oct 18 15:16:23 2013
  *  Copyright  2002  Stefan Jacobs
@@ -20,7 +20,8 @@
  *  Read the full text in the LICENSE.GPL file in the doc directory.
  */
 
-#include "fast_backward_drive_mode.h"
+#include "backward_drive_mode.h"
+
 #include <utils/math/angle.h>
 #include <utils/math/common.h>
 
@@ -30,37 +31,35 @@ namespace fawkes
 }
 #endif
 
-/** @class CFastBackwardDriveModule <plugins/colli/drive_modes/fast_backward_drive_mode.h>
- * This is the FastBackward drive-module, for fast backward only movements.
+/** @class CBackwardDriveModule <plugins/colli/drive_modes/backward_drive_mode.h>
+ * This is the SlowBackward drive-module, for slow backward only movements.
  */
 
 /** Constructor.
  * @param logger The fawkes logger
  * @param config The fawkes configuration
  */
-CFastBackwardDriveModule::CFastBackwardDriveModule(Logger* logger, Configuration* config)
+CBackwardDriveModule::CBackwardDriveModule(Logger* logger, Configuration* config)
  : CAbstractDriveMode(logger, config)
 {
-  logger_->log_debug("CFastBackwardDriveModule", "(Constructor): Entering...");
-  m_DriveModeName = NavigatorInterface::FastBackward;
+  logger_->log_debug("CBackwardDriveModule", "(Constructor): Entering...");
+  m_DriveModeName = NavigatorInterface::Backward;
 
-  m_MaxTranslation = config_->get_float( "/plugins/colli/drive_mode/fast/max_trans" );
-  m_MaxRotation    = config_->get_float( "/plugins/colli/drive_mode/fast/max_rot" );
+  m_MaxTranslation = config_->get_float( "/plugins/colli/drive_mode/normal/max_trans" );
+  m_MaxRotation    = config_->get_float( "/plugins/colli/drive_mode/normal/max_rot" );
 
-  logger_->log_debug("CFastBackwardDriveModule", "(Constructor): Exiting...");
+  logger_->log_debug("CBackwardDriveModule", "(Constructor): Exiting");
 }
 
 
-/** Destruct your local values here.
+/** Destruct your local values here!
  */
-CFastBackwardDriveModule::~CFastBackwardDriveModule()
+CBackwardDriveModule::~CBackwardDriveModule()
 {
-  logger_->log_debug("CFastBackwardDriveModule", "(Destructor): Entering...");
+  logger_->log_debug("CBackwardDriveModule", "(Destructor): Entering...");
   m_DriveModeName = NavigatorInterface::MovingNotAllowed;
-  logger_->log_debug("CFastBackwardDriveModule", "(Destructor): Exiting...");
+  logger_->log_debug("CBackwardDriveModule", "(Destructor): Exiting");
 }
-
-
 
 
 
@@ -80,10 +79,10 @@ CFastBackwardDriveModule::~CFastBackwardDriveModule()
  *  @return A desired rotation.
  */
 float
-CFastBackwardDriveModule::FastBackward_Curvature( float dist_to_target, float dist_to_trajec, float alpha,
+CBackwardDriveModule::Backward_Curvature( float dist_to_target, float dist_to_trajec, float alpha,
                                                   float trans_0, float rot_0 )
 {
-  return 1.5*alpha;
+  return 1.2*alpha;
 }
 
 
@@ -97,37 +96,20 @@ CFastBackwardDriveModule::FastBackward_Curvature( float dist_to_target, float di
  *  @return A desired translation.
  */
 float
-CFastBackwardDriveModule::FastBackward_Translation ( float dist_to_target, float dist_to_front, float alpha,
-                                                     float trans_0, float rot_0, float rot_1 )
+CBackwardDriveModule::Backward_Translation( float dist_to_target, float dist_to_front, float alpha,
+                                                    float trans_0, float rot_0, float rot_1 )
 {
   float trans_1 = 0.0;
 
-  if ( fabs( rot_1 ) >= 0.0 && fabs( rot_1 ) <= 0.4 )
-    trans_1 = LinInterpol( fabs( rot_1 ), 0.3, 0.0, 2.5, fabs(m_MaxTranslation+0.05) );
+  if ( fabs( rot_1 ) >= 0.0 && fabs( rot_1 ) <= 1.0 )
+    trans_1 = LinInterpol( fabs( rot_1 ), 0.0, 1.0, 0.7, fabs(m_MaxTranslation+0.1) );
 
-  else if ( fabs( rot_1 ) > 0.4 && fabs( rot_1 ) <= 0.8 )
-    trans_1 = LinInterpol( fabs( rot_1 ), 0.8, 0.4, 2.0, 2.5 );
-
-  else if ( fabs( rot_1 ) > 0.8 && fabs( rot_1 ) <= 1.3 )
-    trans_1 = LinInterpol( fabs( rot_1 ), 1.3, 0.8, 1.0, 2.0 );
-
-  else if ( fabs( rot_1 ) > 1.3 && fabs( rot_1 ) <= M_PI )
-    trans_1 = LinInterpol( fabs( rot_1 ), M_PI, 1.3, 0.4, 1.0 );
-
-  else if ( fabs( rot_1 ) > M_PI )
-    trans_1 = LinInterpol( fabs( rot_1 ), M_PI, 2*M_PI, 0.0, 0.4 );
-
-  else {
-    logger_->log_debug("CFastBackwardDriveModule", "************ FAST DRIVE MODES:::NOT DEFINED STATE!!!!! STOPPING");
-    trans_1 = 0;
-  }
+  else if ( fabs( rot_1 ) > 1.0 )
+    trans_1 = LinInterpol( fabs( rot_1 ), M_PI, 1.0, 0.0, 0.7 );
 
   // test the borders (no agressive behaviour!)
-  if ( trans_1 > 0.0 )
-    trans_1 = 0.0;
-  if ( trans_1 < m_MaxTranslation )
-    trans_1 = m_MaxTranslation;
-
+  if ( trans_1 > 0.0 ) trans_1 = 0.0;
+  if ( trans_1 < m_MaxTranslation ) trans_1 = m_MaxTranslation;
 
   // OLD STUFF
   //   // check stopping on target and compare distances with choosen velocities
@@ -143,7 +125,7 @@ CFastBackwardDriveModule::FastBackward_Translation ( float dist_to_target, float
   //       trans_1 = min( trans_1, dist_to_front );
   //     }
 
-    // NEW STUFF
+  // NEW STUFF
   float trans_target = 10000.0;
   float trans_front  = 10000.0;
 
@@ -152,7 +134,7 @@ CFastBackwardDriveModule::FastBackward_Translation ( float dist_to_target, float
 
   // And the next collision point
   if ( dist_to_front < dist_to_target )
-    trans_front = GuaranteeTransStop( dist_to_front, trans_0, trans_1 );
+    trans_front = GuaranteeTransStop( (1.0*dist_to_front)/2.0, trans_0, trans_1 );
   // NEW STUFF END HERE
 
   trans_1 = std::min( trans_1, std::min( trans_target, trans_front ) );
@@ -192,36 +174,38 @@ CFastBackwardDriveModule::FastBackward_Translation ( float dist_to_target, float
  *  Those values are questioned after an Update() was called.
  */
 void
-CFastBackwardDriveModule::Update()
+CBackwardDriveModule::Update()
 {
-  m_ProposedTranslation = 0.0;
-  m_ProposedRotation    = 0.0;
+  m_ProposedTranslationX = 0.;
+  m_ProposedTranslationY = 0.;
+  m_ProposedRotation     = 0.;
 
   float dist_to_target = sqrt( sqr(m_LocalTargetX) + sqr(m_LocalTargetY) );
-  float alpha  = normalize_mirror_rad(atan2( m_LocalTargetY, m_LocalTargetX ) + M_PI);
+  float alpha          = normalize_mirror_rad(atan2( m_LocalTargetY, m_LocalTargetX ) + M_PI);
   float dist_to_trajec = sqrt( sqr(m_LocalTrajecX) + sqr(m_LocalTrajecY) );
 
 
-  m_ProposedRotation = FastBackward_Curvature( dist_to_target, dist_to_trajec, alpha,
+  m_ProposedRotation = Backward_Curvature( dist_to_target, dist_to_trajec, alpha,
                                                -m_RoboTrans, -m_RoboRot );
 
-  if ( fabs( alpha ) > M_PI_2 )
-    m_ProposedTranslation = 0.0;
+
+  if ( fabs( alpha ) > M_PI_2+0.1 )
+    m_ProposedTranslationX = 0.0;
   else
-    m_ProposedTranslation = FastBackward_Translation( dist_to_target, dist_to_trajec, alpha,
-                                                      m_RoboTrans, m_RoboRot, m_ProposedRotation );
+    m_ProposedTranslationX = Backward_Translation( dist_to_target, dist_to_trajec, alpha,
+                                                      -m_RoboTrans, -m_RoboRot, m_ProposedRotation);
 
 
   // last time border check............. IMPORTANT!!!
   // because the motorinstructor just tests robots physical borders.
-  if ( dist_to_target < 0.1 ) {
-    m_ProposedTranslation = 0.0;
+  if ( dist_to_target < 0.04 ) {
+    m_ProposedTranslationX = 0.0;
     m_ProposedRotation    = 0.0;
 
   } else {
-    m_ProposedTranslation  = std::min ( m_ProposedTranslation, m_MaxTranslation );
-    m_ProposedTranslation  = std::max ( m_ProposedTranslation, (float)0.0 );
-    m_ProposedTranslation *= -1;
+    m_ProposedTranslationX  = std::min ( m_ProposedTranslationX, m_MaxTranslation );
+    m_ProposedTranslationX  = std::max ( m_ProposedTranslationX, (float)0.0 );
+    m_ProposedTranslationX *= -1;
 
     if (m_ProposedRotation >  m_MaxRotation)
       m_ProposedRotation =  m_MaxRotation;
@@ -229,12 +213,13 @@ CFastBackwardDriveModule::Update()
     if (m_ProposedRotation < -m_MaxRotation)
       m_ProposedRotation = -m_MaxRotation;
 
+
     if ( m_StopAtTarget == false && dist_to_target < 1.0 ) {
       // Reduziere die rotationsgeschwindigkeiten, damit keine wilden lenkmanoever kommen
-      if ( m_ProposedRotation > 0.3 )
-        m_ProposedRotation =  0.3;
-      else if ( m_ProposedRotation < -0.3 )
-        m_ProposedRotation = -0.3;
+      if ( m_ProposedRotation > 0.5 )
+        m_ProposedRotation =  0.5;
+      else if ( m_ProposedRotation < -0.5 )
+        m_ProposedRotation = -0.5;
     }
   }
 }

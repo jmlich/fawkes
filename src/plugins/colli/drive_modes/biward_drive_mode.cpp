@@ -1,6 +1,6 @@
 
 /***************************************************************************
- *  medium_biward_drive_mode.cpp - Implementation of drive-mode "medium forward + backward"
+ *  biward_drive_mode.cpp - Implementation of drive-mode "forward + backward"
  *
  *  Created: Fri Oct 18 15:16:23 2013
  *  Copyright  2002  Stefan Jacobs
@@ -20,7 +20,7 @@
  *  Read the full text in the LICENSE.GPL file in the doc directory.
  */
 
-#include "medium_biward_drive_mode.h"
+#include "biward_drive_mode.h"
 
 namespace fawkes
 {
@@ -28,46 +28,46 @@ namespace fawkes
 }
 #endif
 
-/** @class CMediumBiwardDriveModule <plugins/colli/drive_modes/medium_biward_drive_mode.h>
- * This is the MediumBiward drive-module. It is inherited from  the abstract drive mode
+/** @class CBiwardDriveModule <plugins/colli/drive_modes/biward_drive_mode.h>
+ * This is the SlowBiward drive-module. It is inherited from  the abstract drive mode
  * and uses the other both modes.  If the target is in front, it drives forward
  * to the target, else it drives backward to the target.
  */
 
 /** Constructor.
- * @param forward_module The MediumForward drive module
- * @param backward_module The MediumBackward drive module
+ * @param forward The Forward drive module
+ * @param backward The Backward drive module
  * @param logger The fawkes logger
  * @param config The fawkes configuration
  */
-CMediumBiwardDriveModule::CMediumBiwardDriveModule( CMediumForwardDriveModule*  forward_module,
-                                                    CMediumBackwardDriveModule* backward_module,
-                                                    Logger* logger,
-                                                    Configuration* config )
+CBiwardDriveModule::CBiwardDriveModule( CForwardDriveModule*  forward,
+                                                CBackwardDriveModule* backward,
+                                                Logger* logger,
+                                                Configuration* config )
  : CAbstractDriveMode(logger, config)
 {
-  logger_->log_debug("CMediumBiwardDriveModule", "(Constructor): Entering...");
-  m_DriveModeName = NavigatorInterface::ModerateAllowBackward;
-  m_pMediumForwardDriveModule  = forward_module;
-  m_pMediumBackwardDriveModule = backward_module;
+  logger_->log_debug("CBiwardDriveModule", "(Constructor): Entering...");
+  m_DriveModeName = NavigatorInterface::AllowBackward;
+  m_pForwardDriveModule  = forward;
+  m_pBackwardDriveModule = backward;
 
   m_CountForward = 1;
 
-  m_MaxTranslation = config_->get_float( "/plugins/colli/drive_mode/medium/max_trans" );
-  m_MaxRotation    = config_->get_float( "/plugins/colli/drive_mode/medium/max_rot" );
+  m_MaxTranslation = config_->get_float( "/plugins/colli/drive_mode/normal/max_trans" );
+  m_MaxRotation    = config_->get_float( "/plugins/colli/drive_mode/normal/max_rot" );
 
-  logger_->log_debug("CMediumBiwardDriveModule", "(Constructor): Exiting...");
+  logger_->log_debug("CBiwardDriveModule", "(Constructor): Exiting...");
 }
 
 
 /** Destruct your local values here.
  */
-CMediumBiwardDriveModule::~CMediumBiwardDriveModule()
+CBiwardDriveModule::~CBiwardDriveModule()
 {
-  logger_->log_debug("CMediumBiwardDriveModule", "(Destructor): Entering...");
-  m_DriveModeName = NavigatorInterface::MovingNotAllowed;
-  logger_->log_debug("CMediumBiwardDriveModule", "(Destructor): Exiting...");
+  logger_->log_debug("CBiwardDriveModule", "(Destructor): Entering...");
+  logger_->log_debug("CBiwardDriveModule", "(Destructor): Exiting...");
 }
+
 
 
 
@@ -100,10 +100,12 @@ CMediumBiwardDriveModule::~CMediumBiwardDriveModule()
  *  Those values are questioned after an Update() was called.
  */
 void
-CMediumBiwardDriveModule::Update()
+CBiwardDriveModule::Update()
 {
-  m_ProposedTranslation = 0.0;
-  m_ProposedRotation    = 0.0;
+  // Just to take care.
+  m_ProposedTranslationX = 0.;
+  m_ProposedTranslationY = 0.;
+  m_ProposedRotation     = 0.;
 
   // Our drive mode (choose between forward and backward)
   CAbstractDriveMode * driveMode = 0;
@@ -124,32 +126,29 @@ CMediumBiwardDriveModule::Update()
     m_CountForward = -1;
 
   else {
-    logger_->log_debug("CMediumBiwardDriveModule", "Undefined state");
+    logger_->log_debug("CBiwardDriveModule", "Undefined state");
     m_CountForward = 0;
   }
 
   if ( m_CountForward == 1 )
-    driveMode = m_pMediumForwardDriveModule;
+    driveMode = m_pForwardDriveModule;
   else
-    driveMode = m_pMediumBackwardDriveModule;
-
-
+    driveMode = m_pBackwardDriveModule;
 
   // set the current info to the drive mode
   driveMode->SetCurrentRoboPos( m_RoboX, m_RoboY, m_RoboOri );
-  driveMode->SetCurrentRoboSpeed( m_RoboTrans, m_RoboRot );
+  driveMode->SetCurrentRoboSpeed( m_RoboTrans, m_RoboTransX, m_RoboTransY, m_RoboRot );
   driveMode->SetCurrentTarget( m_TargetX, m_TargetY, m_TargetOri );
   driveMode->SetLocalTarget( m_LocalTargetX, m_LocalTargetY );
   driveMode->SetLocalTrajec( m_LocalTrajecX, m_LocalTrajecY );
-  driveMode->SetCurrentColliMode( m_OrientAtTarget, m_StopAtTarget );
+  driveMode->SetCurrentColliMode( m_OrientMode, m_StopAtTarget );
 
   // update the drive mode
   driveMode->Update();
 
   // get the values from the drive mode
-  m_ProposedTranslation = driveMode->GetProposedTranslation();
+  m_ProposedTranslationX = driveMode->GetProposedTranslationX();
   m_ProposedRotation    = driveMode->GetProposedRotation();
-
 }
 
 } // namespace fawkes
