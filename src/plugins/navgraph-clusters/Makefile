@@ -18,7 +18,7 @@ include $(BASEDIR)/etc/buildsys/config.mk
 include $(BUILDCONFDIR)/tf/tf.mk
 include $(BUILDSYSDIR)/eigen3.mk
 
-CFLAGS += $(CFLAGS_CPP11)
+CFLAGS += $(CFLAGS_CPP11) -Wno-error=unused-local-typedefs
 
 LIBS_navgraph_clusters = fawkescore fawkesutils fawkesaspects fawkesinterface \
 		fawkesblackboard fawkestf \
