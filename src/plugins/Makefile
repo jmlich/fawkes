@@ -23,7 +23,7 @@ SUBDIRS	= bbsync bblogger webview ttmainloop rrd rrdweb \
 	  bumblebee2 perception amcl \
 	  skiller luaagent worldmodel \
 	  laser-filter laser-lines laser-cluster laser-pointclouds \
-	  static_transforms navgraph colli \
+	  static_transforms navgraph navgraph-clusters colli \
 	  clips clips-agent clips-protobuf clips-webview clips-navgraph clips-ros \
 	  openprs openprs-agent \
 	  mongodb mongodb_log \
@@ -40,7 +40,7 @@ amcl navgraph perception robotino: ros
 mongodb_log: mongodb
 mongodb: rrd
 clips-navgraph clips-agent clips-protobuf: clips
-clips-navgraph: navgraph
+clips-navgraph navgraph-clusters: navgraph
 clips-webview: clips webview
 clips-ros: clips ros
 gazebo: robotino
