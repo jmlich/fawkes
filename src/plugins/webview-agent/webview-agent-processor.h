@@ -35,8 +35,8 @@ namespace fawkes {
 class WebviewAgentRequestProcessor : public fawkes::WebRequestProcessor
 {
  public:
-  WebviewAgentRequestProcessor(std::string base_url, std::string agent_id,
-				fawkes::BlackBoard *blackboard, fawkes::Logger *logger);
+  WebviewAgentRequestProcessor(std::string base_url,
+				fawkes::AgentInterface *agent_if, fawkes::Logger *logger);
 
   virtual ~WebviewAgentRequestProcessor();
 
@@ -50,11 +50,8 @@ class WebviewAgentRequestProcessor : public fawkes::WebRequestProcessor
 
  private:
   const std::string      baseurl_;
-  fawkes::BlackBoard     *blackboard_;
-  fawkes::Logger         *logger_;
-
   fawkes::AgentInterface *agent_if_;
-
+  fawkes::Logger         *logger_;
 };
 
 #endif

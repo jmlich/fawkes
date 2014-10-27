@@ -67,8 +67,9 @@ WebviewAgentThread::init()
     nav_entry = config->get_string("/webview/agent/nav-entry");
   } catch (Exception &e) {} // ignored, use default
 
+  agent_if_ = blackboard->open_for_reading<AgentInterface>("Agent");
   web_proc_  = new WebviewAgentRequestProcessor(AGENT_URL_PREFIX,
-						 agent_id, blackboard, logger);
+						 agent_if_, logger);
   webview_url_manager->register_baseurl(AGENT_URL_PREFIX, web_proc_);
   webview_nav_manager->add_nav_entry(AGENT_URL_PREFIX, nav_entry.c_str());
 

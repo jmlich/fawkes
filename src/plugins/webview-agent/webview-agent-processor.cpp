@@ -28,7 +28,6 @@
 #include <webview/error_reply.h>
 #include <webview/file_reply.h>
 #include <webview/redirect_reply.h>
-#include <blackboard/blackboard.h>
 #include <interfaces/AgentInterface.h>
 
 #include <sstream>
@@ -52,23 +51,19 @@ using namespace std;
 
 /** Constructor.
  * @param base_url base URL of the webview agent web request processor.
- * @param agent_id AgentInterface ID
- * @param blackboard blackboard to open interfaces 
+ * @param agent_if AgentInterface
  * @param logger logger to report problems
  */
 WebviewAgentRequestProcessor::WebviewAgentRequestProcessor(
-  string base_url, string agent_id,
-  fawkes::BlackBoard *blackboard, fawkes::Logger *logger)
-: baseurl_(base_url), blackboard_(blackboard), logger_(logger)
+  string base_url, fawkes::AgentInterface *agent_if, fawkes::Logger *logger)
+: baseurl_(base_url), agent_if_(agent_if), logger_(logger)
 {
-  agent_if_       = blackboard->open_for_reading<AgentInterface>(agent_id.c_str());
 }
 
 
 /** Destructor. */
 WebviewAgentRequestProcessor::~WebviewAgentRequestProcessor()
 {
-  blackboard_->close(agent_if_);
 }
 
 
