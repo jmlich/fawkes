@@ -43,7 +43,7 @@ LIBS_webview_agent = m \
 	fawkescore fawkesutils fawkesaspects fawkeswebview fawkesblackboard \
 	fawkesinterface AgentInterface
 OBJS_webview_agent = webview-agent-plugin.o webview-agent-thread.o \
-		     webview-agent-processor.o
+		     webview-agent-processor.o webview-agent-worker-thread.o
 
 OBJS_all = $(OBJS_webview_agent)
 

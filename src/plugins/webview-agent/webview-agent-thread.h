@@ -26,14 +26,17 @@
 #include <aspect/logging.h>
 #include <aspect/clock.h>
 #include <aspect/blackboard.h>
+#include <blackboard/interface_listener.h>
 #include <aspect/webview.h>
 #include <aspect/configurable.h>
+#include <aspect/thread_producer.h>
 
 namespace fawkes {
   class AgentInterface;
 }
 
 class WebviewAgentRequestProcessor;
+class WebviewAgentWorkerThread;
 
 class WebviewAgentThread
 : public fawkes::Thread,
@@ -41,26 +44,32 @@ class WebviewAgentThread
   public fawkes::ClockAspect,
   public fawkes::ConfigurableAspect,
   public fawkes::BlackBoardAspect,
-  public fawkes::WebviewAspect
+  public fawkes::BlackBoardInterfaceListener,
+  public fawkes::WebviewAspect,
+  public fawkes::ThreadProducerAspect
 {
  public:
   WebviewAgentThread();
   virtual ~WebviewAgentThread();
 
   virtual void init();
-//  virtual void loop();
   virtual void finalize();
+
+  // InterfaceListener
+  virtual void bb_interface_data_changed(fawkes::Interface *interface) throw();
 
  /** Stub to see name in backtrace for easier debugging. @see Thread::run() */
  protected: virtual void run() { Thread::run(); }
 
  private:
   WebviewAgentRequestProcessor *web_proc_;
-
-  // TODO needed ? 
-  // fawkes::TimeWait *time_wait_;
+  WebviewAgentWorkerThread *worker_thread_;
   fawkes::AgentInterface   *agent_if_;
+  uint next_buffer_;
 
+  uint cfg_buffer_size_;
+  bool cfg_save_images_;
+  std::string cfg_image_path_;
 };
 
 #endif

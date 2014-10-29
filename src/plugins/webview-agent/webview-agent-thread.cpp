@@ -22,6 +22,7 @@
 
 #include "webview-agent-thread.h"
 #include "webview-agent-processor.h"
+#include "webview-agent-worker-thread.h"
 
 #include <webview/url_manager.h>
 #include <webview/nav_manager.h>
@@ -31,9 +32,12 @@
 
 #include <interfaces/AgentInterface.h>
 
+
 using namespace fawkes;
+using namespace std;
 
 #define AGENT_URL_PREFIX "/agent"
+#define CFG_PREFIX "/webview/agent/"
 
 /** @class WebviewAgentThread "webview-agent-thread.h"
  * Show agent information in webview.
@@ -42,9 +46,9 @@ using namespace fawkes;
 
 /** Constructor. */
 WebviewAgentThread::WebviewAgentThread()
-  : Thread("WebviewAgentThread", Thread::OPMODE_CONTINUOUS)
+  : Thread("WebviewAgentThread", Thread::OPMODE_WAITFORWAKEUP),
+    BlackBoardInterfaceListener("WebviewAgentThread"), next_buffer_(0)
 {
-  //set_prepfin_conc_loop(true);
 }
 
 
@@ -57,32 +61,99 @@ WebviewAgentThread::~WebviewAgentThread()
 void
 WebviewAgentThread::init()
 {
-  std::string agent_id   = "Agent";
+  string agent_id   = "Agent";
   try {
-    agent_id = config->get_string("/webview/agent/agent-id");
+    agent_id = config->get_string(CFG_PREFIX"agent_id");
   } catch (Exception &e) {} // ignored, use default
 
-  std::string nav_entry = "Agent";
+  string nav_entry = "Agent";
   try {
-    nav_entry = config->get_string("/webview/agent/nav-entry");
+    nav_entry = config->get_string(CFG_PREFIX"nav_entry");
   } catch (Exception &e) {} // ignored, use default
 
-  agent_if_ = blackboard->open_for_reading<AgentInterface>("Agent");
+  cfg_buffer_size_ = 20;
+  try {
+    cfg_buffer_size_ = config->get_uint(CFG_PREFIX"buffer_size");
+  } catch (Exception &e) {} // ignored, use default
+
+  cfg_save_images_ = false;
+  try {
+    cfg_save_images_ = config->get_bool(CFG_PREFIX"save_images");
+  } catch (Exception &e) {} // ignored, use default
+
+  cfg_image_path_ = "./";
+  try {
+    cfg_image_path_ = config->get_string(CFG_PREFIX"image_path");
+  } catch (Exception &e) {} // ignored, use default
+  if (cfg_image_path_ == "") {
+    throw Exception("The empty path is not valid as image_path config value!");
+  }
+  if (cfg_image_path_.back() != '/') {
+    cfg_image_path_.push_back('/');
+  }
+
+  agent_if_ = blackboard->open_for_reading<AgentInterface>(agent_id.c_str());
+  agent_if_->resize_buffers(cfg_buffer_size_);
+
+  worker_thread_ = new WebviewAgentWorkerThread(agent_if_);
+  thread_collector->add(worker_thread_);
   web_proc_  = new WebviewAgentRequestProcessor(AGENT_URL_PREFIX,
-						 agent_if_, logger);
+						 worker_thread_, logger);
   webview_url_manager->register_baseurl(AGENT_URL_PREFIX, web_proc_);
   webview_nav_manager->add_nav_entry(AGENT_URL_PREFIX, nav_entry.c_str());
 
-  //agent_if_ = blackboard->open_for_
-
+  // InterfaceListener
+  if (cfg_save_images_) {
+    // we are only interested in interface changes if we save the generated images
+    bbil_add_data_interface(agent_if_);
+    blackboard->register_listener(this);
+  }
 }
 
 
 void
 WebviewAgentThread::finalize()
 {
+
+  thread_collector->remove(worker_thread_);
   webview_url_manager->unregister_baseurl(AGENT_URL_PREFIX);
   webview_nav_manager->remove_nav_entry(AGENT_URL_PREFIX);
   delete web_proc_;
+
+  bbil_remove_data_interface(agent_if_);
+  blackboard->unregister_listener(this);
+
+  blackboard->close(agent_if_);
+}
+
+
+void
+WebviewAgentThread::bb_interface_data_changed(fawkes::Interface *interface) throw()
+{
+  if (!cfg_save_images_) {
+    // we are not interested in interface changes because we don't save the generated images
+    return;
+  }
+
+  AgentInterface *iface = dynamic_cast<AgentInterface *>(interface);
+  if (!iface) {
+    // not our interface type
+    return;
+  }
+
+  agent_if_->copy_private_to_buffer(next_buffer_);
+  agent_if_->copy_shared_to_buffer(next_buffer_);
+  char * tmp;
+  if (asprintf(&tmp, "agent-%u.png", static_cast<uint>(Time().in_usec()))) {
+    string filename = tmp;
+    free(tmp);
+    string filepath = cfg_image_path_ + filename;
+    FILE * f = fopen(filename.c_str(), "w");
+    worker_thread_->add_request_to_queue(f, next_buffer_, true);
+    worker_thread_->wakeup();
+    next_buffer_ = (next_buffer_ + 1) % cfg_buffer_size_;
+  } else {
+    logger->log_error(name(), "Could not initialize filename, skipping blackboard update.");
+  }
 }
 

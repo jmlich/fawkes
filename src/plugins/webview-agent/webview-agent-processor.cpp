@@ -28,15 +28,11 @@
 #include <webview/error_reply.h>
 #include <webview/file_reply.h>
 #include <webview/redirect_reply.h>
-#include <interfaces/AgentInterface.h>
 
-#include <sstream>
+#include "webview-agent-worker-thread.h"
 
 #include <cstring>
 #include <cerrno>
-
-#include <gvc.h>
-#include <gvcjob.h>
 
 #include <unistd.h>
 
@@ -51,12 +47,12 @@ using namespace std;
 
 /** Constructor.
  * @param base_url base URL of the webview agent web request processor.
- * @param agent_if AgentInterface
+ * @param worker_thread The worker thread which processes the request.
  * @param logger logger to report problems
  */
 WebviewAgentRequestProcessor::WebviewAgentRequestProcessor(
-  string base_url, fawkes::AgentInterface *agent_if, fawkes::Logger *logger)
-: baseurl_(base_url), agent_if_(agent_if), logger_(logger)
+  string base_url, WebviewAgentWorkerThread * worker_thread, fawkes::Logger *logger)
+: baseurl_(base_url), worker_thread_(worker_thread), logger_(logger)
 {
 }
 
@@ -75,7 +71,6 @@ WebviewAgentRequestProcessor::process_request(const fawkes::WebRequest *request)
     string subpath = request->url().substr(baseurl_.length());
 
     if (subpath == "/graph.png") {
-      string graph = generate_graph_string();
 
       //logger_->log_debug("WebviewAgentProcessor", "graph string is %s", graph.c_str());
       FILE *f = tmpfile();
@@ -84,7 +79,7 @@ WebviewAgentRequestProcessor::process_request(const fawkes::WebRequest *request)
             "Cannot open temp file: %s", strerror(errno));
       }
 
-      string_to_graph(graph, f);
+      worker_thread_->process_request(AgentWorkerRequest(f));
 
       try {
         DynamicFileWebReply *freply = new DynamicFileWebReply(f);
@@ -96,7 +91,6 @@ WebviewAgentRequestProcessor::process_request(const fawkes::WebRequest *request)
     } else {
       WebPageReply *r = new WebPageReply("Agent");
       r->append_body("<p><img src=\"%s/graph.png\" /></p>", baseurl_.c_str());
-      //      r->append_body("<pre>%s</pre>", graph.c_str());
       return r;
     }
   } else {
@@ -104,67 +98,3 @@ WebviewAgentRequestProcessor::process_request(const fawkes::WebRequest *request)
   }
 }
 
-void
-WebviewAgentRequestProcessor::string_to_graph(string graph, FILE * output)
-{
-  GVC_t* gvc = gvContext(); 
-  Agraph_t* G = agmemread((char *)graph.c_str());
-  gvLayout(gvc, G, (char *)"dot");
-  gvRender(gvc, G, "png", output);
-  gvFreeLayout(gvc, G);
-  agclose(G);    
-  gvFreeContext(gvc);
-}
-
-string
-WebviewAgentRequestProcessor::generate_graph_string()
-{
-  stringstream gstream;
-  agent_if_->read();
-  gstream << "digraph { graph [fontsize=14];";
-  gstream << "node [fontsize=12]; edge [fontsize=12]; " << endl;
-
-  if (! agent_if_->has_writer()) {
-    gstream << "\"No writer for agent interface. No agent running\"";
-    gstream << "}";
-    return gstream.str();
-  }
-
-  string history = agent_if_->history();
-  logger_->log_debug("WebviewAgentRequestProcessor", "History is %s", history.c_str());
-  vector<string> action_vector = action_string_to_list(history);
-  uint node_id = 1;
-  for (vector<string>::const_iterator it = action_vector.begin(); it != action_vector.end(); it++, node_id++) {
-    gstream << node_id << " " << "[label=" << '"' << *it << '"' << ",color=green];" << endl;
-    if (node_id != 1) {
-      // node is not the first one, add an edge from the predecessor to the node
-      gstream << node_id - 1 << " -> " << node_id << endl;
-    }
-  }
-  
-  string plan = agent_if_->plan();
-  logger_->log_debug("WebviewAgentRequestProcessor", "Plan is %s", plan.c_str());
-  vector<string> plan_vector = action_string_to_list(plan);
-  for (vector<string>::const_iterator it = plan_vector.begin(); it != plan_vector.end(); it++, node_id++) {
-    gstream << node_id << " " << "[label=" << '"' << *it << '"' << ",color=blue];" << endl;
-    if (node_id != 1) {
-      // node is not the first one, add an edge from the predecessor to the node
-      gstream << node_id - 1 << " -> " << node_id << endl;
-    }
-  }
-
-  gstream << "}";
-  return gstream.str();
-}
-
-vector<string>
-WebviewAgentRequestProcessor::action_string_to_list(string action_string, string delimiter /* = ";" */)
-{
-  vector<string> action_vector;
-  while (size_t match_pos = action_string.find(delimiter)) {
-    if (match_pos == string::npos) break;
-    action_vector.push_back(action_string.substr(0, match_pos));
-    action_string = action_string.substr(match_pos+1, string::npos);
-  }
-  return action_vector;
-}

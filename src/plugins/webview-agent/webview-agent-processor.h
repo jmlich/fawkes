@@ -28,30 +28,24 @@
 
 namespace fawkes {
   class Logger;
-  class BlackBoard;
-  class AgentInterface;
 }
+
+class WebviewAgentWorkerThread;
 
 class WebviewAgentRequestProcessor : public fawkes::WebRequestProcessor
 {
  public:
   WebviewAgentRequestProcessor(std::string base_url,
-				fawkes::AgentInterface *agent_if, fawkes::Logger *logger);
+        WebviewAgentWorkerThread *worker, fawkes::Logger *logger);
 
   virtual ~WebviewAgentRequestProcessor();
 
   virtual fawkes::WebReply * process_request(const fawkes::WebRequest *request);
 
-  virtual std::string generate_graph_string(); 
-  virtual void string_to_graph(std::string graph_string, FILE *output);
-
  private:
-  std::vector<std::string> action_string_to_list(std::string action_string, std::string delimiter = ";");
-
- private:
-  const std::string      baseurl_;
-  fawkes::AgentInterface *agent_if_;
-  fawkes::Logger         *logger_;
+  const std::string         baseurl_;
+  WebviewAgentWorkerThread  *worker_thread_;
+  fawkes::Logger            *logger_;
 };
 
 #endif
