@@ -22,6 +22,7 @@
 
 #include "syncpoint_test_emitter_thread.h"
 #include <syncpoint/syncpoint_manager.h>
+#include <unistd.h>
 
 using namespace fawkes;
 
@@ -40,6 +41,7 @@ SyncPointTestEmitterThread::SyncPointTestEmitterThread()
 void
 SyncPointTestEmitterThread::init()
 {
+  set_prepfin_conc_loop();
   syncpoint_ = syncpoint_manager->get_syncpoint(name(), "/test/1");
 }
 
@@ -52,6 +54,7 @@ SyncPointTestEmitterThread::finalize()
 void
 SyncPointTestEmitterThread::loop()
 {
+  sleep(5);
   ++loopcount_;
   logger->log_debug(name(), "number of syncpoints: %u", syncpoint_manager->get_syncpoints().size());
   logger->log_info(name(), "[%u] emitting syncpoint %s", loopcount_, syncpoint_->get_identifier());

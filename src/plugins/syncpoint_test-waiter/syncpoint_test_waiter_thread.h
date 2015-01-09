@@ -26,6 +26,7 @@
 #include <core/threading/thread.h>
 #include <aspect/logging.h>
 #include <aspect/syncpoint_manager.h>
+#include <aspect/blocked_timing.h>
 #include <core/utils/refptr.h>
 
 namespace fawkes {
@@ -35,7 +36,7 @@ namespace fawkes {
 class SyncPointTestWaiterThread
 : public fawkes::Thread,
   public fawkes::LoggingAspect,
- // public fawkes::BlockedTimingAspect,
+  public fawkes::BlockedTimingAspect,
   public fawkes::SyncPointManagerAspect
 {
  public:

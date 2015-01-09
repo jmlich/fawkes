@@ -21,6 +21,7 @@
 
 
 #include "syncpoint_test_waiter_thread.h"
+#include <unistd.h>
 
 using namespace fawkes;
 
@@ -31,14 +32,15 @@ using namespace fawkes;
 
 /** Constructor. */
 SyncPointTestWaiterThread::SyncPointTestWaiterThread()
-  : Thread("SyncPointTestWaiterThread", Thread::OPMODE_CONTINUOUS)
-   // BlockedTimingAspect(BlockedTimingAspect::WAKEUP_HOOK_WORLDSTATE)
+  : Thread("SyncPointTestWaiterThread", Thread::OPMODE_WAITFORWAKEUP),
+    BlockedTimingAspect(BlockedTimingAspect::WAKEUP_HOOK_WORLDSTATE)
 {
 }
 
 void
 SyncPointTestWaiterThread::init()
 {
+  //set_prepfin_conc_loop();
   syncpoint_ = syncpoint_manager->get_syncpoint(name(), "/test/1");
   loopcount_ = 0;
 }
