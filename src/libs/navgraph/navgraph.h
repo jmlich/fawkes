@@ -127,7 +127,9 @@ class NavGraph
   void add_node(const NavGraphNode &node);
   void add_edge(const NavGraphEdge &edge);
   void remove_node(const NavGraphNode &node);
+  void remove_node(const std::string &node_name);
   void remove_edge(const NavGraphEdge &edge);
+  void remove_edge(const std::string &from, const std::string &to);
   void clear();
 
   void update_node(const NavGraphNode &node);
