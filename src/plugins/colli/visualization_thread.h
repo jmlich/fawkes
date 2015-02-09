@@ -78,6 +78,7 @@ class ColliVisualizationThread
   ros::Publisher *pub_cells_mid_;
   ros::Publisher *pub_cells_far_;
   ros::Publisher *pub_cells_free_;
+  ros::Publisher *pub_cells_err_;
   ros::Publisher *pub_search_path_;
 
   std::vector<fawkes::point_t> cells_occ_;

@@ -70,6 +70,9 @@ ColliVisualizationThread::init()
   pub_cells_free_ = new ros::Publisher();
   *pub_cells_free_ = rosnode->advertise< nav_msgs::GridCells >("colli_cells_free", 1);
 
+  pub_cells_err_ = new ros::Publisher();
+  *pub_cells_err_ = rosnode->advertise< nav_msgs::GridCells >("colli_cells_err", 1);
+
   pub_search_path_ = new ros::Publisher();
   *pub_search_path_ = rosnode->advertise< nav_msgs::GridCells >("colli_search_path", 1);
 
@@ -92,6 +95,8 @@ ColliVisualizationThread::finalize()
   delete pub_cells_far_;
   pub_cells_free_->shutdown();
   delete pub_cells_free_;
+  pub_cells_err_->shutdown();
+  delete pub_cells_err_;
 
   pub_search_path_->shutdown();
   delete pub_search_path_;
@@ -137,6 +142,7 @@ ColliVisualizationThread::loop()
   nav_msgs::GridCells grid_cells_mid(grid);
   nav_msgs::GridCells grid_cells_far(grid);
   nav_msgs::GridCells grid_cells_free(grid);
+  nav_msgs::GridCells grid_cells_err(grid);
   Probability prob;
   point_t gridpos_laser = occ_grid_->get_laser_position();
   for( int y=0; y < occ_grid_->get_height(); ++y ) {
@@ -147,20 +153,22 @@ ColliVisualizationThread::loop()
       p.z = 0;
 
       prob = occ_grid_->get_prob(x,y);
-      if( prob == cell_costs_.occ) {
+      if( prob >= cell_costs_.occ) {
         grid_cells_occ.cells.push_back( p );
 
-      } else if( prob == cell_costs_.near ) {
+      } else if( prob >= cell_costs_.near ) {
         grid_cells_near.cells.push_back( p );
 
-      } else if( prob == cell_costs_.mid ) {
+      } else if( prob >= cell_costs_.mid ) {
         grid_cells_mid.cells.push_back( p );
 
-      } else if( prob == cell_costs_.far ) {
+      } else if( prob >= cell_costs_.far ) {
         grid_cells_far.cells.push_back( p );
 
-      } else if( prob == cell_costs_.free ) {
+      } else if( prob >= cell_costs_.free ) {
         grid_cells_free.cells.push_back( p );
+      } else {
+	grid_cells_err.cells.push_back( p );
       }
     }
   }
@@ -169,6 +177,7 @@ ColliVisualizationThread::loop()
   pub_cells_mid_->publish( grid_cells_mid );
   pub_cells_far_->publish( grid_cells_far );
   pub_cells_free_->publish( grid_cells_free );
+  pub_cells_err_->publish( grid_cells_err );
 
   // publish path
   grid.cells.clear();
