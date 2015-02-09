@@ -218,7 +218,7 @@ AStar::generate_children( AStarState * father )
 
   if ( father->y_ > 0 ) {
     prob = occ_grid_->get_prob( father->x_, father->y_-1 );
-    if ( prob != cell_costs_.occ ) {
+    if ( prob < cell_costs_.occ ) {	// ! prob >= cell_costs_.occ
       child = astar_states_[++astar_state_count_];
       child->x_ = father->x_;
       child->y_ = father->y_-1;
@@ -237,7 +237,7 @@ AStar::generate_children( AStarState * father )
 
   if ( father->y_ < (signed int)height_ ) {
     prob = occ_grid_->get_prob( father->x_, father->y_+1 );
-    if ( prob != cell_costs_.occ ) {
+    if ( prob < cell_costs_.occ ) {	// ! prob >= cell_costs_.occ
       child = astar_states_[++astar_state_count_];
       child->x_ = father->x_;
       child->y_ = father->y_+1;
@@ -256,7 +256,7 @@ AStar::generate_children( AStarState * father )
 
   if ( father->x_ > 0 ) {
     prob = occ_grid_->get_prob( father->x_-1, father->y_ );
-    if ( prob != cell_costs_.occ ) {
+    if ( prob < cell_costs_.occ ) {	// ! prob >= cell_costs_.occ
       child = astar_states_[++astar_state_count_];
       child->x_ = father->x_-1;
       child->y_ = father->y_;
@@ -275,7 +275,7 @@ AStar::generate_children( AStarState * father )
 
   if ( father->x_ < (signed int)width_ ) {
     prob = occ_grid_->get_prob( father->x_+1, father->y_ );
-    if ( prob != cell_costs_.occ ) {
+    if ( prob < cell_costs_.occ ) {	// ! prob >= cell_costs_.occ
       child = astar_states_[++astar_state_count_];
       child->x_ = father->x_+1;
       child->y_ = father->y_;
@@ -384,7 +384,7 @@ AStar::remove_target_from_obstacle( int target_x, int target_y, int step_x, int 
         child->y_ = father->y_;
         child->total_cost_ = father->total_cost_+1;
         key = calculate_key( child->x_, child->y_ );
-        if ( occ_grid_->get_prob( child->x_, child->y_ ) == cell_costs_.near )
+        if ( occ_grid_->get_prob( child->x_, child->y_ ) <= cell_costs_.near )
           return point_t( child->x_, child->y_ );
         else if ( closed_list_.find( key ) == closed_list_.end() )
           open_list_.push( child );
@@ -396,7 +396,7 @@ AStar::remove_target_from_obstacle( int target_x, int target_y, int step_x, int 
         child->y_ = father->y_ + step_y;
         child->total_cost_ = father->total_cost_+1;
         key = calculate_key( child->x_, child->y_ );
-        if ( occ_grid_->get_prob( child->x_, child->y_ ) == cell_costs_.near )
+        if ( occ_grid_->get_prob( child->x_, child->y_ ) <= cell_costs_.near )
           return point_t( child->x_, child->y_ );
         else if ( closed_list_.find( key ) == closed_list_.end() )
           open_list_.push( child );

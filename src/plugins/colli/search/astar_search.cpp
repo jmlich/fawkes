@@ -79,7 +79,7 @@ Search::update( int robo_x, int robo_y, int target_x, int target_y )
   local_target_     = point_t( robo_x, robo_y );
   local_trajec_ = point_t( robo_x, robo_y );
 
-  if ( occ_grid_->get_prob( target_x, target_y ) == cell_costs_.occ ) {
+  if ( occ_grid_->get_prob( target_x, target_y ) >= cell_costs_.occ ) {
     int step_x = 1;  // initializing to 1
     int step_y = 1;
     if ( robo_x < target_x ) // if we search in the other direction, inverse it!
@@ -252,15 +252,15 @@ Search::is_obstacle_between( const point_t &a, const point_t &b, const int maxco
 
       prob = occ_grid_->get_prob( _actXGrid, _actYGrid );
 
-      if ( prob == cell_costs_.free )
+      if ( prob <= cell_costs_.free )
         ;
-      else if ( prob == cell_costs_.occ )
+      else if ( prob >= cell_costs_.occ )
         return true;
-      else if ( prob == cell_costs_.far )
+      else if ( prob >= cell_costs_.far )
         ++count;
-      else if ( prob == cell_costs_.mid )
+      else if ( prob >= cell_costs_.mid )
         count += 2;
-      else if ( prob == cell_costs_.near )
+      else if ( prob >= cell_costs_.near )
         count += 4;
       else
         logger_->log_warn("AStar_search", "(line 261) ERROR IN RAYTRACER!");
@@ -286,15 +286,15 @@ Search::is_obstacle_between( const point_t &a, const point_t &b, const int maxco
 
       prob = occ_grid_->get_prob( _actXGrid, _actYGrid );
 
-      if ( prob == cell_costs_.free )
+      if ( prob <= cell_costs_.free )
         ;
-      else if ( prob == cell_costs_.occ )
+      else if ( prob >= cell_costs_.occ )
         return true;
-      else if ( prob == cell_costs_.far )
+      else if ( prob >= cell_costs_.far )
         ++count;
-      else if ( prob == cell_costs_.mid )
+      else if ( prob >= cell_costs_.mid )
         count += 2;
-      else if ( prob == cell_costs_.near )
+      else if ( prob >= cell_costs_.near )
         count += 4;
       else
         logger_->log_warn("AStar_search", "(line 295) ERROR IN RAYTRACER!");
