@@ -25,6 +25,8 @@
 
 #include <core/exceptions/software.h>
 
+#include <map>
+#include <string>
 #include <cstring>
 #include <cstdlib>
 
@@ -51,11 +53,15 @@ SkillerInterface::SkillerInterface() : Interface()
   data      = (SkillerInterface_data_t *)data_ptr;
   data_ts   = (interface_data_ts_t *)data_ptr;
   memset(data_ptr, 0, data_size);
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
   add_fieldinfo(IFT_STRING, "skill_string", 1024, data->skill_string);
   add_fieldinfo(IFT_STRING, "error", 128, data->error);
   add_fieldinfo(IFT_UINT32, "exclusive_controller", 1, &data->exclusive_controller);
   add_fieldinfo(IFT_UINT32, "msgid", 1, &data->msgid);
-  add_fieldinfo(IFT_ENUM, "status", 1, &data->status, "SkillStatusEnum");
+  add_fieldinfo(IFT_ENUM, "status", 1, &data->status, "SkillStatusEnum", &enum_map_SkillStatusEnum);
   add_messageinfo("ExecSkillMessage");
   add_messageinfo("RestartInterpreterMessage");
   add_messageinfo("StopExecMessage");
@@ -332,6 +338,10 @@ SkillerInterface::ExecSkillMessage::ExecSkillMessage(const char * ini_skill_stri
   data      = (ExecSkillMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
   strncpy(data->skill_string, ini_skill_string, 1024);
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
   add_fieldinfo(IFT_STRING, "skill_string", 1024, data->skill_string);
 }
 /** Constructor */
@@ -342,6 +352,10 @@ SkillerInterface::ExecSkillMessage::ExecSkillMessage() : Message("ExecSkillMessa
   memset(data_ptr, 0, data_size);
   data      = (ExecSkillMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
   add_fieldinfo(IFT_STRING, "skill_string", 1024, data->skill_string);
 }
 
@@ -425,6 +439,10 @@ SkillerInterface::RestartInterpreterMessage::RestartInterpreterMessage() : Messa
   memset(data_ptr, 0, data_size);
   data      = (RestartInterpreterMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
 }
 
 /** Destructor */
@@ -471,6 +489,10 @@ SkillerInterface::StopExecMessage::StopExecMessage() : Message("StopExecMessage"
   memset(data_ptr, 0, data_size);
   data      = (StopExecMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
 }
 
 /** Destructor */
@@ -520,6 +542,10 @@ SkillerInterface::AcquireControlMessage::AcquireControlMessage(const bool ini_st
   data      = (AcquireControlMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
   data->steal_control = ini_steal_control;
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
   add_fieldinfo(IFT_BOOL, "steal_control", 1, &data->steal_control);
 }
 /** Constructor */
@@ -530,6 +556,10 @@ SkillerInterface::AcquireControlMessage::AcquireControlMessage() : Message("Acqu
   memset(data_ptr, 0, data_size);
   data      = (AcquireControlMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
   add_fieldinfo(IFT_BOOL, "steal_control", 1, &data->steal_control);
 }
 
@@ -617,6 +647,10 @@ SkillerInterface::ReleaseControlMessage::ReleaseControlMessage() : Message("Rele
   memset(data_ptr, 0, data_size);
   data      = (ReleaseControlMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_SkillStatusEnum[(int)S_INACTIVE] = "S_INACTIVE";
+  enum_map_SkillStatusEnum[(int)S_FINAL] = "S_FINAL";
+  enum_map_SkillStatusEnum[(int)S_RUNNING] = "S_RUNNING";
+  enum_map_SkillStatusEnum[(int)S_FAILED] = "S_FAILED";
 }
 
 /** Destructor */

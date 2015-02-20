@@ -25,9 +25,9 @@
 #include <aspect/configurable.h>
 #include <aspect/logging.h>
 
-#include <utils/graph/topological_map_graph.h>
-#include <plugins/navgraph/aspect/navgraph.h>
-#include <plugins/navgraph/constraints/constraint_repo.h>
+#include <navgraph/navgraph.h>
+#include <navgraph/aspect/navgraph.h>
+#include <navgraph/constraints/constraint_repo.h>
 
 namespace fawkes {
   class NavGraphStaticListNodeConstraint;

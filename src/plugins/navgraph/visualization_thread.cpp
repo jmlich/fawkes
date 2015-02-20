@@ -21,8 +21,8 @@
 
 #include "visualization_thread.h"
 
-#include <utils/graph/topological_map_graph.h>
-#include <plugins/navgraph/constraints/constraint_repo.h>
+#include <navgraph/navgraph.h>
+#include <navgraph/constraints/constraint_repo.h>
 #include <tf/types.h>
 #include <utils/math/angle.h>
 #include <utils/math/coord.h>
@@ -42,6 +42,7 @@ typedef std::multimap<std::string, std::string> ConnMap;
 NavGraphVisualizationThread::NavGraphVisualizationThread()
   : fawkes::Thread("NavGraphVisualizationThread", Thread::OPMODE_WAITFORWAKEUP)
 {
+  set_coalesce_wakeups(true);
   graph_ = NULL;
   crepo_ = NULL;
 }
@@ -52,7 +53,7 @@ NavGraphVisualizationThread::init()
 {
   vispub_ = rosnode->advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 100, /* latching */ true);
 
-  cfg_cost_scale_max_ = config->get_float("/plugins/navgraph/visualization/cost_scale_max");
+  cfg_cost_scale_max_ = config->get_float("/navgraph/visualization/cost_scale_max");
   if (cfg_cost_scale_max_ < 1.0) {
     throw Exception("Visualization cost max scale must greater or equal to 1.0");
   }
@@ -98,10 +99,10 @@ NavGraphVisualizationThread::finalize()
  * @param graph graph to use
  */
 void
-NavGraphVisualizationThread::set_graph(fawkes::LockPtr<TopologicalMapGraph> &graph)
+NavGraphVisualizationThread::set_graph(fawkes::LockPtr<NavGraph> &graph)
 {
   graph_ = graph;
-  plan_.clear();
+  traversal_.invalidate();
   plan_to_ = plan_from_ = "";
   wakeup();
 }
@@ -110,18 +111,18 @@ NavGraphVisualizationThread::set_graph(fawkes::LockPtr<TopologicalMapGraph> &gra
  * @param crepo constraint repo
  */
 void
-NavGraphVisualizationThread::set_constraint_repo(fawkes::LockPtr<ConstraintRepo> &crepo)
+NavGraphVisualizationThread::set_constraint_repo(fawkes::LockPtr<NavGraphConstraintRepo> &crepo)
 {
   crepo_ = crepo;
 }
 
-/** Set current plan.
- * @param plan current plan
+/** Set current path.
+ * @param traversal currently active path traversal
  */
 void
-NavGraphVisualizationThread::set_plan(std::vector<fawkes::TopologicalMapNode> plan)
+NavGraphVisualizationThread::set_traversal(NavGraphPath::Traversal &traversal)
 {
-  plan_ = plan;
+  traversal_ = traversal;
   plan_to_ = plan_from_ = "";
   wakeup();
 }
@@ -130,7 +131,7 @@ NavGraphVisualizationThread::set_plan(std::vector<fawkes::TopologicalMapNode> pl
 void
 NavGraphVisualizationThread::reset_plan()
 {
-  plan_.clear();
+  traversal_.invalidate();
   plan_to_ = plan_from_ = "";
   wakeup();
 }
@@ -148,6 +149,13 @@ NavGraphVisualizationThread::set_current_edge(std::string from, std::string to)
     plan_to_ = to;
     wakeup();
   }
+}
+
+
+void
+NavGraphVisualizationThread::graph_changed() throw()
+{
+  wakeup();
 }
 
 
@@ -212,8 +220,10 @@ NavGraphVisualizationThread::publish()
 {
   if (! graph_) return;
 
-  std::vector<fawkes::TopologicalMapNode> nodes = graph_->nodes();
-  std::vector<fawkes::TopologicalMapEdge> edges = graph_->edges();
+  graph_.lock();
+  std::vector<fawkes::NavGraphNode> nodes = graph_->nodes();
+  std::vector<fawkes::NavGraphEdge> edges = graph_->edges();
+  graph_.unlock();
 
   crepo_.lock();
   std::map<std::string, std::string> bl_nodes = crepo_->blocks(nodes);
@@ -280,8 +290,9 @@ NavGraphVisualizationThread::publish()
 
 
   for (size_t i = 0; i < nodes.size(); ++i) {
-    bool is_in_plan = (std::find(plan_.begin(), plan_.end(), nodes[i]) != plan_.end());
-    bool is_last    = (plan_.size() >= 1) && (plan_.back().name() == nodes[i].name());
+    bool is_in_plan = traversal_ && traversal_.path().contains(nodes[i]);
+    bool is_last    = traversal_ &&
+      (traversal_.path().size() >= 1) && (traversal_.path().goal() == nodes[i]);
     //bool is_next    = (plan_.size() >= 2) && (plan_[1].name() == nodes[i].name());
     bool is_active  = (plan_to_ == nodes[i].name());
 
@@ -436,8 +447,10 @@ NavGraphVisualizationThread::publish()
 
   }
 
-  if (! plan_.empty() && plan_.back().name() == "free-target") {
-    TopologicalMapNode &target_node = plan_[plan_.size() - 1];
+  if (traversal_ &&
+      ! traversal_.path().empty() && traversal_.path().goal().name() == "free-target")
+  {
+    const NavGraphNode &target_node = traversal_.path().goal();
 
     // we are traveling to a free target
     visualization_msgs::Marker sphere;
@@ -508,30 +521,33 @@ NavGraphVisualizationThread::publish()
     }
 
     float target_tolerance = 0.;
-    if (plan_.back().has_property("target_tolerance")) {
-      target_tolerance = plan_.back().property_as_float("target_tolerance");
+    if (traversal_.path().goal().has_property("target_tolerance")) {
+      target_tolerance = traversal_.path().goal().property_as_float("target_tolerance");
     } else if (graph_->has_default_property("target_tolerance")) {
       target_tolerance = graph_->default_property_as_float("target_tolerance");
     }
     if (target_tolerance > 0.) {
-      add_circle_markers(m, id_num, plan_.back().x(), plan_.back().y(), target_tolerance, 10,
+      add_circle_markers(m, id_num, traversal_.path().goal().x(), traversal_.path().goal().y(),
+			 target_tolerance, 10,
 			 sphere.color.r, sphere.color.g, sphere.color.b,
-			 (plan_.size() == 1) ? sphere.color.a : 0.5);
+			 (traversal_.last()) ? sphere.color.a : 0.5);
     }
 
     float shortcut_tolerance = 0.;
-    if (plan_.back().has_property("shortcut_tolerance")) {
-      shortcut_tolerance = plan_.back().property_as_float("shortcut_tolerance");
+    if (traversal_.path().goal().has_property("shortcut_tolerance")) {
+      shortcut_tolerance = traversal_.path().goal().property_as_float("shortcut_tolerance");
     } else if (graph_->has_default_property("shortcut_tolerance")) {
       shortcut_tolerance = graph_->default_property_as_float("shortcut_tolerance");
     }
     if (shortcut_tolerance > 0.) {
-      add_circle_markers(m, id_num, plan_.back().x(), plan_.back().y(), shortcut_tolerance, 30,
+      add_circle_markers(m, id_num, traversal_.path().goal().x(), traversal_.path().goal().y(),
+			 shortcut_tolerance, 30,
 			 sphere.color.r, sphere.color.g, sphere.color.b, 0.3);
     }
 
-    if (plan_.size() >= 2) {
-      TopologicalMapNode &last_graph_node = plan_[plan_.size() - 2];
+    if (traversal_.remaining() >= 2) {
+      const NavGraphNode &last_graph_node =
+	traversal_.path().nodes()[traversal_.path().size() - 2];
       
       geometry_msgs::Point p1;
       p1.x =  last_graph_node.x();
@@ -577,10 +593,10 @@ NavGraphVisualizationThread::publish()
     
 
   for (size_t i = 0; i < edges.size(); ++i) {
-    TopologicalMapEdge &edge = edges[i];
+    NavGraphEdge &edge = edges[i];
     if (graph_->node_exists(edge.from()) && graph_->node_exists(edge.to())) {
-      TopologicalMapNode from = graph_->node(edge.from());
-      TopologicalMapNode to   = graph_->node(edge.to());
+      NavGraphNode from = graph_->node(edge.from());
+      NavGraphNode to   = graph_->node(edge.to());
 
       geometry_msgs::Point p1;
       p1.x =  from.x();
@@ -617,12 +633,16 @@ NavGraphVisualizationThread::publish()
           arrow.scale.y = 0.3; // head radius
         } else {
           bool in_plan = false;
-          for (size_t p = 0; p < plan_.size(); ++p) {
-            if (plan_[p] == from && (p < plan_.size() - 1 && plan_[p+1] == to)) {
-              in_plan = true;
-              break;
-            }
-          }
+	  if (traversal_) {
+	    for (size_t p = 0; p < traversal_.path().nodes().size(); ++p) {
+	      if (traversal_.path().nodes()[p] == from &&
+		  (p < traversal_.path().nodes().size() - 1 && traversal_.path().nodes()[p+1] == to))
+	      {
+		in_plan = true;
+		break;
+	      }
+	    }
+	  }
 
           if (in_plan) {
             // it's in the current plan
@@ -667,14 +687,18 @@ NavGraphVisualizationThread::publish()
           cur_line.points.push_back(p2);
         } else {
           bool in_plan = false;
-          for (size_t p = 0; p < plan_.size(); ++p) {
-            if (plan_[p] == from &&
-                ((p > 0 && plan_[p-1] == to) || (p < plan_.size() - 1 && plan_[p+1] == to)))
-            {
-              in_plan = true;
-              break;
-            }
-          }
+	  if (traversal_) {
+	    for (size_t p = 0; p < traversal_.path().nodes().size(); ++p) {
+	      if (traversal_.path().nodes()[p] == from &&
+		  ((p > 0 && traversal_.path().nodes()[p-1] == to) ||
+		   (p < traversal_.path().nodes().size() - 1 &&
+		    traversal_.path().nodes()[p+1] == to)))
+	      {
+		in_plan = true;
+		break;
+	      }
+	    }
+	  }
 
           if (in_plan) {
             // it's in the current plan

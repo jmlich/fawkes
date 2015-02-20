@@ -20,9 +20,9 @@
 
 #include "navgraph_stconstr_thread.h"
 
-#include <plugins/navgraph/constraints/static_list_node_constraint.h>
-#include <plugins/navgraph/constraints/static_list_edge_constraint.h>
-#include <plugins/navgraph/constraints/static_list_edge_cost_constraint.h>
+#include <navgraph/constraints/static_list_node_constraint.h>
+#include <navgraph/constraints/static_list_edge_constraint.h>
+#include <navgraph/constraints/static_list_edge_cost_constraint.h>
 #include <utils/misc/string_split.h>
 
 using namespace fawkes;
@@ -47,13 +47,13 @@ void
 NavGraphStaticConstraintsThread::init()
 {
   std::vector<std::string> nodes =
-    config->get_strings("/plugins/navgraph/static-constraints/nodes");
+    config->get_strings("/navgraph/static-constraints/nodes");
 
   std::vector<std::string> c_edges =
-    config->get_strings("/plugins/navgraph/static-constraints/edges");
+    config->get_strings("/navgraph/static-constraints/edges");
 
   std::vector<std::string> c_edge_costs =
-    config->get_strings("/plugins/navgraph/static-constraints/edge-costs");
+    config->get_strings("/navgraph/static-constraints/edge-costs");
 
   std::vector<std::pair<std::string, std::string>> edges;
   for (std::string & ce : c_edges) {
@@ -82,12 +82,12 @@ NavGraphStaticConstraintsThread::init()
   edge_constraint_ = new NavGraphStaticListEdgeConstraint("static-edges");
   edge_cost_constraint_ = new NavGraphStaticListEdgeCostConstraint("static-edge-cost");
 
-  const std::vector<TopologicalMapNode> &graph_nodes = navgraph->nodes();
+  const std::vector<NavGraphNode> &graph_nodes = navgraph->nodes();
 
   std::list<std::string> missing_nodes;
   for (std::string node_name : nodes) {
     bool found = false;
-    for (const TopologicalMapNode &gnode : graph_nodes) {
+    for (const NavGraphNode &gnode : graph_nodes) {
       if (gnode.name() == node_name) {
 	node_constraint_->add_node(gnode);
 	found = true;
@@ -113,13 +113,13 @@ NavGraphStaticConstraintsThread::init()
     throw Exception("Some block nodes are not in graph: %s", err_str.c_str());
   }
 
-  const std::vector<TopologicalMapEdge> &graph_edges = navgraph->edges();
+  const std::vector<NavGraphEdge> &graph_edges = navgraph->edges();
 
 
   std::list<std::pair<std::string, std::string>> missing_edges;
   for (std::pair<std::string, std::string> edge : edges) {
     bool found = false;
-    for (const TopologicalMapEdge &gedge : graph_edges) {
+    for (const NavGraphEdge &gedge : graph_edges) {
       if ((edge.first == gedge.from() && edge.second == gedge.to()) ||
 	  (edge.first == gedge.to() && edge.second == gedge.from()))
       {
@@ -150,7 +150,7 @@ NavGraphStaticConstraintsThread::init()
   missing_edges.clear();
   for (std::tuple<std::string, std::string, float> edge : edge_costs) {
     bool found = false;
-    for (const TopologicalMapEdge &gedge : graph_edges) {
+    for (const NavGraphEdge &gedge : graph_edges) {
       if ((std::get<0>(edge) == gedge.from() && std::get<1>(edge) == gedge.to()) ||
 	  (std::get<0>(edge) == gedge.to() && std::get<1>(edge) == gedge.from()))
       {
@@ -178,17 +178,17 @@ NavGraphStaticConstraintsThread::init()
     throw Exception("Some edges for cost factors are not in graph: %s", err_str.c_str());
   }
 
-  constraint_repo->register_constraint(node_constraint_);
-  constraint_repo->register_constraint(edge_constraint_);
-  constraint_repo->register_constraint(edge_cost_constraint_);
+  navgraph->constraint_repo()->register_constraint(node_constraint_);
+  navgraph->constraint_repo()->register_constraint(edge_constraint_);
+  navgraph->constraint_repo()->register_constraint(edge_cost_constraint_);
 }
 
 void
 NavGraphStaticConstraintsThread::finalize()
 {
-  constraint_repo->unregister_constraint(node_constraint_->name());
-  constraint_repo->unregister_constraint(edge_constraint_->name());
-  constraint_repo->unregister_constraint(edge_cost_constraint_->name());
+  navgraph->constraint_repo()->unregister_constraint(node_constraint_->name());
+  navgraph->constraint_repo()->unregister_constraint(edge_constraint_->name());
+  navgraph->constraint_repo()->unregister_constraint(edge_cost_constraint_->name());
   delete node_constraint_;
   delete edge_constraint_;
   delete edge_cost_constraint_;

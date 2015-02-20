@@ -3,8 +3,7 @@
  *  interface.h - BlackBoard Interface
  *
  *  Created: Mon Oct 09 18:34:11 2006
- *  Copyright  2006-2009  Tim Niemueller [www.niemueller.de]
- *
+ *  Copyright  2006-2015  Tim Niemueller [www.niemueller.de]
  ****************************************************************************/
 
 /*  This program is free software; you can redistribute it and/or modify
@@ -34,7 +33,7 @@
 #include <stdint.h>
 
 #define __INTERFACE_TYPE_SIZE   32
-#define __INTERFACE_ID_SIZE     32
+#define __INTERFACE_ID_SIZE     64
 // We use MD5 as interface hash
 #define __INTERFACE_HASH_SIZE   16
 //  UID is:                                   type  ::   id
@@ -102,6 +101,7 @@ class Interface
   bool                    is_writer() const;
   void                    set_validity(bool valid);
   bool                    is_valid() const;
+  const char *            owner() const;
 
   void                    set_from_chunk(void *chunk);
 
@@ -123,6 +123,8 @@ class Interface
 
   bool          has_writer() const;
   unsigned int  num_readers() const;
+  std::string   writer() const;
+  std::list<std::string> readers() const;
 
   bool          changed() const;
   const Time *  timestamp() const;
@@ -203,7 +205,7 @@ class Interface
   unsigned int num_fields();
 
   /* Convenience */
-  static void parse_uid(const char *uid, char **type, char **id);
+  static void parse_uid(const char *uid, std::string &type, std::string &id);
 
  protected:
   Interface();
@@ -211,7 +213,8 @@ class Interface
 
   void set_hash(unsigned char *ihash);
   void add_fieldinfo(interface_fieldtype_t type, const char *name,
-		     size_t length, void *value, const char *enumtype = 0);
+		     size_t length, void *value,
+		     const char *enumtype = 0, const interface_enum_map_t *enum_map = 0);
   void add_messageinfo(const char *name);
 
   void         *data_ptr;
@@ -227,6 +230,7 @@ class Interface
 				   MessageMediator *msg_mediator);
   void set_memory(unsigned int serial, void *real_ptr, void *data_ptr);
   void set_readwrite(bool write_access, RefCountRWLock *rwlock);
+  void set_owner(const char *owner);
 
   inline unsigned int next_msg_id()
   {
@@ -238,6 +242,7 @@ class Interface
   char               __uid[__INTERFACE_UID_SIZE + 1];
   unsigned char      __hash[__INTERFACE_HASH_SIZE];
   char               __hash_printable[__INTERFACE_HASH_SIZE * 2 + 1];
+  char              *__owner;
 
   unsigned short     __instance_serial;
   bool               __valid;

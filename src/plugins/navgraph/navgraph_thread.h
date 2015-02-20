@@ -33,18 +33,17 @@
 #include <aspect/tf.h>
 #include <aspect/blackboard.h>
 #include <aspect/aspect_provider.h>
-#include <plugins/navgraph/aspect/navgraph_inifin.h>
+#include <navgraph/aspect/navgraph_inifin.h>
 
 #include <interfaces/NavigatorInterface.h>
 #include <interfaces/NavPathInterface.h>
 
-#include <utils/graph/topological_map_graph.h>
+#include <navgraph/navgraph.h>
 #include <utils/system/fam.h>
 
-#include <plugins/navgraph/constraints/constraint_repo.h>
+#include <navgraph/constraints/constraint_repo.h>
 
 namespace fawkes {
-  class AStar;
   class Time;
 }
 
@@ -79,17 +78,17 @@ class NavGraphThread
  private:
   void generate_plan(std::string goal);
   void generate_plan(float x, float y, float ori);
-  bool replan(const fawkes::TopologicalMapNode &start,
-	      const fawkes::TopologicalMapNode &goal);
+  bool replan(const fawkes::NavGraphNode &start,
+	      const fawkes::NavGraphNode &goal);
   void optimize_plan();
   void stop_motion();
   void start_plan();
   void send_next_goal();
   bool node_reached();
   size_t shortcut_possible();
-  fawkes::LockPtr<fawkes::TopologicalMapGraph> load_graph(std::string filename);
+  fawkes::LockPtr<fawkes::NavGraph> load_graph(std::string filename);
   void log_graph();
-  void publish_path(std::vector<fawkes::TopologicalMapNode> path);
+  void publish_path();
 
 
  private:
@@ -118,8 +117,7 @@ class NavGraphThread
   fawkes::NavigatorInterface *pp_nav_if_;
   fawkes::NavPathInterface *path_if_;
 
-  fawkes::LockPtr<fawkes::TopologicalMapGraph> graph_;
-  fawkes::AStar *astar_;
+  fawkes::LockPtr<fawkes::NavGraph> graph_;
 
   fawkes::tf::Stamped<fawkes::tf::Pose> pose_;
   bool exec_active_;
@@ -127,10 +125,11 @@ class NavGraphThread
   float target_time_;
   fawkes::Time *target_reached_at_;
   std::string last_node_;
-  std::vector<fawkes::TopologicalMapNode> plan_;
+  fawkes::NavGraphPath path_;
+  fawkes::NavGraphPath::Traversal traversal_;
   bool constrained_plan_;
 
-  fawkes::LockPtr<fawkes::ConstraintRepo> constraint_repo_;
+  fawkes::LockPtr<fawkes::NavGraphConstraintRepo> constraint_repo_;
 
   fawkes::Time *cmd_sent_at_;
   fawkes::Time *path_planned_at_;

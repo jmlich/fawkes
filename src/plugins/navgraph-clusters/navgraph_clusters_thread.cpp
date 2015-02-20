@@ -24,10 +24,10 @@
 #include "clusters_distance_cost_constraint.h"
 
 #include <core/threading/mutex_locker.h>
-#include <utils/graph/topological_map_graph.h>
+#include <navgraph/navgraph.h>
 #include <tf/utils.h>
 #include <interfaces/Position3DInterface.h>
-#include <plugins/navgraph/constraints/constraint_repo.h>
+#include <navgraph/constraints/constraint_repo.h>
 
 #include <Eigen/StdVector>
 #include <algorithm>
@@ -83,12 +83,12 @@ NavGraphClustersThread::init()
   edge_cost_constraint_ = NULL;
   if (cfg_mode_ == "block") {
     edge_constraint_ = new NavGraphClustersBlockConstraint("clusters", this);
-    constraint_repo->register_constraint(edge_constraint_);
+    navgraph->constraint_repo()->register_constraint(edge_constraint_);
   } else if (cfg_mode_ == "static-cost") {
     float cost_factor = config->get_float("/navgraph-clusters/static-cost/cost-factor");
     edge_cost_constraint_ =
       new NavGraphClustersStaticCostConstraint("clusters", this, cost_factor);
-    constraint_repo->register_constraint(edge_cost_constraint_);
+    navgraph->constraint_repo()->register_constraint(edge_cost_constraint_);
   } else if (cfg_mode_ == "distance-cost") {
     float cost_min = config->get_float("/navgraph-clusters/distance-cost/cost-min");
     float cost_max = config->get_float("/navgraph-clusters/distance-cost/cost-max");
@@ -97,7 +97,7 @@ NavGraphClustersThread::init()
     edge_cost_constraint_ =
       new NavGraphClustersDistanceCostConstraint("clusters", this,
 						 cost_min, cost_max, dist_min, dist_max);
-    constraint_repo->register_constraint(edge_cost_constraint_);
+    navgraph->constraint_repo()->register_constraint(edge_cost_constraint_);
   } else {
     throw Exception("Unknown constraint mode '%s'", cfg_mode_.c_str());
   }
@@ -107,12 +107,12 @@ void
 NavGraphClustersThread::finalize()
 {
   if (edge_constraint_) {
-    constraint_repo->unregister_constraint(edge_constraint_->name());
+    navgraph->constraint_repo()->unregister_constraint(edge_constraint_->name());
     delete edge_constraint_;
   }
 
   if (edge_cost_constraint_) {
-    constraint_repo->unregister_constraint(edge_cost_constraint_->name());
+    navgraph->constraint_repo()->unregister_constraint(edge_cost_constraint_->name());
     delete edge_cost_constraint_;
   }
 
@@ -241,7 +241,7 @@ NavGraphClustersThread::blocked_edges_centroids() throw()
   MutexLocker lock(cluster_ifs_.mutex());
   std::list<std::tuple<std::string, std::string, Eigen::Vector2f>> blocked;
 
-  const std::vector<TopologicalMapEdge> &graph_edges = navgraph->edges();
+  const std::vector<NavGraphEdge> &graph_edges = navgraph->edges();
 
   for (Position3DInterface *pif : cluster_ifs_) {
     pif->read();
@@ -252,7 +252,7 @@ NavGraphClustersThread::blocked_edges_centroids() throw()
 	Eigen::Vector2f centroid(fixed_frame_pose(pif->frame(), fawkes::Time(0,0),
 						  pif->translation(0), pif->translation(1)));
 
-	for (const TopologicalMapEdge &edge : graph_edges) {
+	for (const NavGraphEdge &edge : graph_edges) {
 	  const Eigen::Vector2f origin(edge.from_node().x(), edge.from_node().y());
 	  const Eigen::Vector2f target(edge.to_node().x(), edge.to_node().y());
 	  const Eigen::Vector2f direction(target - origin);

@@ -3,8 +3,7 @@
  *  interface.cpp - BlackBoard Interface
  *
  *  Created: Mon Oct 09 18:54:50 2006
- *  Copyright  2006-2009  Tim Niemueller [www.niemueller.de]
- *
+ *  Copyright  2006-2015  Tim Niemueller [www.niemueller.de]
  ****************************************************************************/
 
 /*  This program is free software; you can redistribute it and/or modify
@@ -242,6 +241,7 @@ Interface::Interface()
   __timestamp = new Time(0, 0);
   __local_read_timestamp = new Time(0, 0);
   __auto_timestamping = true;
+  __owner = strdup("?");
   data_changed = false;
   memset(__hash, 0, __INTERFACE_HASH_SIZE);
   memset(__hash_printable, 0, __INTERFACE_HASH_SIZE * 2 + 1);
@@ -280,6 +280,7 @@ Interface::~Interface()
   }
   delete __timestamp;
   delete __local_read_timestamp;
+  if (__owner) free(__owner);
 }
 
 /** Get interface hash.
@@ -328,10 +329,12 @@ Interface::set_hash(unsigned char *ihash)
  * @param length length of the field
  * @param value pointer to the value in the data struct
  * @param enumtype name of the enum type, valid only if type == IFT_ENUM.
+ * @param enum_map enum value map
  */
 void
 Interface::add_fieldinfo(interface_fieldtype_t type, const char *name,
-			 size_t length, void *value, const char *enumtype)
+			 size_t length, void *value, const char *enumtype,
+			 const interface_enum_map_t *enum_map)
 {
   interface_fieldinfo_t *infol = __fieldinfo_list;
   interface_fieldinfo_t *newinfo =
@@ -342,6 +345,7 @@ Interface::add_fieldinfo(interface_fieldtype_t type, const char *name,
   newinfo->name     = name;
   newinfo->length   = length;
   newinfo->value    = value;
+  newinfo->enum_map = enum_map;
   newinfo->next     = NULL;
 
   if ( infol == NULL ) {
@@ -546,7 +550,7 @@ Interface::set_type_id(const char *type, const char *id)
   __uid[__INTERFACE_UID_SIZE] = 0;
   strncpy(__type, type, __INTERFACE_TYPE_SIZE);
   strncpy(__id, id, __INTERFACE_ID_SIZE);
-  snprintf(__uid, __INTERFACE_UID_SIZE, "%s::%s", type, id);
+  snprintf(__uid, __INTERFACE_UID_SIZE, "%s::%s", __type, __id);
 }
 
 
@@ -599,6 +603,17 @@ Interface::set_readwrite(bool write_access, RefCountRWLock *rwlock)
 }
 
 
+/** Set owner name for interface.
+ * @param owner name of owner of interface
+ */
+void
+Interface::set_owner(const char *owner)
+{
+  if (__owner) free(__owner);
+  __owner = NULL;
+  if (owner) __owner = strdup(owner);
+}
+
 /** Check equality of two interfaces.
  * Two interfaces are the same if their types and identifiers are
  * equal.  This does not mean that both interfaces are the very same
@@ -648,6 +663,17 @@ Interface::id() const
   return __id;
 }
 
+
+/** Get owner of interface.
+ * The owner is an arbitrary name, usually a thread or plugin name
+ * for the entity which opened this specific interface instance.
+ * @return owner name
+ */
+const char *
+Interface::owner() const
+{
+  return __owner;
+}
 
 /** Get unique identifier of interface.
  * As the name suggests this ID denotes a unique memory instance of
@@ -825,6 +851,27 @@ unsigned int
 Interface::num_readers() const
 {
   return __interface_mediator->num_readers(this);
+}
+
+
+/** Get owner name of writing interface instance.
+ * @return name of owner of writing interface instance if a local one
+ * exists, an empty string otherwise.
+ */
+std::string
+Interface::writer() const
+{
+  return __interface_mediator->writer(this);
+}
+
+
+/** Get owner names of reading interface instances.
+ * @return list of names of owners of instances opened for reading
+ */
+std::list<std::string>
+Interface::readers() const
+{
+  return __interface_mediator->readers(this);
 }
 
 
@@ -1353,11 +1400,11 @@ Interface::buffer_timestamp(unsigned int buffer, Time *timestamp)
  * Note that the returned values (type and id) must be freed once they are
  * no longer used. Also verifies lengths of the type and id strings.
  * @param uid UID to parse
- * @param type upon return contains the type part of the UID, must be freed
- * @param id upon return contains the ID part, must be freed
+ * @param type upon return contains the type part of the UID
+ * @param id upon return contains the ID part
  */
 void
-Interface::parse_uid(const char *uid, char **type, char **id)
+Interface::parse_uid(const char *uid, std::string &type, std::string &id)
 {
   regex_t re;
   int ec = 0;
@@ -1379,8 +1426,10 @@ Interface::parse_uid(const char *uid, char **type, char **id)
     throw Exception("Failed to match UID %s, format error.", uid);
   }
 
-  *type = strndup(&(uid[matches[1].rm_so]), matches[1].rm_eo - matches[1].rm_so);
-  *id   = strndup(&(uid[matches[2].rm_so]), matches[2].rm_eo - matches[2].rm_so);
+  type.assign(&(uid[matches[1].rm_so]), matches[1].rm_eo - matches[1].rm_so);
+  id.assign(&(uid[matches[2].rm_so]), matches[2].rm_eo - matches[2].rm_so);
+
+  regfree(&re);
 }
 
 } // end namespace fawkes

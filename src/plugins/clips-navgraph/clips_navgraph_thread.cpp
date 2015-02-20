@@ -21,9 +21,9 @@
 
 #include "clips_navgraph_thread.h"
 
-#include <utils/graph/topological_map_graph.h>
-#include <plugins/navgraph/constraints/static_list_edge_constraint.h>
-#include <plugins/navgraph/constraints/constraint_repo.h>
+#include <navgraph/navgraph.h>
+#include <navgraph/constraints/static_list_edge_constraint.h>
+#include <navgraph/constraints/constraint_repo.h>
 
 #include <clipsmm.h>
 
@@ -54,14 +54,14 @@ ClipsNavGraphThread::init()
   navgraph->add_change_listener(this);
 
   edge_constraint_ = new NavGraphStaticListEdgeConstraint("clips");
-  constraint_repo->register_constraint(edge_constraint_);
+  navgraph->constraint_repo()->register_constraint(edge_constraint_);
 }
 
 
 void
 ClipsNavGraphThread::finalize()
 {
-  constraint_repo->unregister_constraint(edge_constraint_->name());
+  navgraph->constraint_repo()->unregister_constraint(edge_constraint_->name());
   delete edge_constraint_;
 
   navgraph->remove_change_listener(this);
@@ -110,14 +110,12 @@ void
 ClipsNavGraphThread::clips_navgraph_load(LockPtr<CLIPS::Environment> &clips)
 {
   try {
-    TopologicalMapNode root_node                 = navgraph->root_node();
-    const std::vector<TopologicalMapNode> &nodes = navgraph->nodes();
-    const std::vector<TopologicalMapEdge> &edges = navgraph->edges();
+    const std::vector<NavGraphNode> &nodes = navgraph->nodes();
+    const std::vector<NavGraphEdge> &edges = navgraph->edges();
 
-    clips->assert_fact_f("(navgraph (name \"%s\") (root \"%s\"))",
-			 navgraph->name().c_str(), root_node.name().c_str());
+    clips->assert_fact_f("(navgraph (name \"%s\"))", navgraph->name().c_str());
 
-    for (auto n : nodes) {
+    for (const NavGraphNode &n : nodes) {
       std::string props_string;
       const std::map<std::string, std::string> &properties = n.properties();
       for (auto p : properties) {
@@ -127,14 +125,14 @@ ClipsNavGraphThread::clips_navgraph_load(LockPtr<CLIPS::Environment> &clips)
 			   n.name().c_str(), n.x(), n.y(), props_string.c_str());
     }
 
-    for (auto e : edges) {
+    for (const NavGraphEdge &e : edges) {
       std::string props_string;
       const std::map<std::string, std::string> &properties = e.properties();
       for (auto p : properties) {
 	props_string += " \"" + p.first + "\" \"" + p.second + "\"";
       }
       clips->assert_fact_f("(navgraph-edge (from \"%s\") (to \"%s\") (directed %s) "
-			   "(properties \"%s\"))",
+			   "(properties %s))",
 			   e.from().c_str(), e.to().c_str(),
 			   e.is_directed() ? "TRUE" : "FALSE", props_string.c_str());
     }
@@ -151,9 +149,9 @@ void
 ClipsNavGraphThread::clips_navgraph_block_edge(std::string env_name,
 					       std::string from, std::string to)
 {
-  const std::vector<TopologicalMapEdge> &graph_edges = navgraph->edges();
+  const std::vector<NavGraphEdge> &graph_edges = navgraph->edges();
 
-  for (const TopologicalMapEdge &edge : graph_edges) {
+  for (const NavGraphEdge &edge : graph_edges) {
     if (edge.from() == from && edge.to() == to) {
       edge_constraint_->add_edge(edge);
       return;
@@ -170,9 +168,9 @@ void
 ClipsNavGraphThread::clips_navgraph_unblock_edge(std::string env_name,
 						 std::string from, std::string to)
 {
-  const std::vector<TopologicalMapEdge> &graph_edges = navgraph->edges();
+  const std::vector<NavGraphEdge> &graph_edges = navgraph->edges();
 
-  for (const TopologicalMapEdge &edge : graph_edges) {
+  for (const NavGraphEdge &edge : graph_edges) {
     if (edge.from() == from && edge.to() == to) {
       edge_constraint_->remove_edge(edge);
       return;
