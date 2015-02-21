@@ -47,7 +47,7 @@ namespace fawkes
   class NavigatorInterface;
 
   class LaserOccupancyGrid;
-  class Search;
+  class SearchAStar;
   class AbstractSearch;
 
   class SelectDriveMode;

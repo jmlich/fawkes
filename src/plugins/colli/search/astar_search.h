@@ -44,11 +44,11 @@ typedef struct point_struct point_t;
  *  Here the plan from A* is managed and cut into small pieces.
  *    Also usable methods for managing the plan are implemented here.
  */
-class Search: public AbstractSearch
+class SearchAStar: public AbstractSearch
 {
  public:
-  Search( LaserOccupancyGrid * occ_grid , Logger* logger, Configuration* config);
-  virtual ~Search();
+  SearchAStar( LaserOccupancyGrid * occ_grid , Logger* logger, Configuration* config);
+  virtual ~SearchAStar();
 
   ///\brief update complete plan things
   void update( int robo_x, int robo_y, int target_x, int target_y );

@@ -45,7 +45,7 @@ namespace fawkes
  * @param logger The fawkes logger
  * @param config The fawkes configuration.
  */
-Search::Search( LaserOccupancyGrid * occ_grid, Logger* logger, Configuration* config)
+SearchAStar::SearchAStar( LaserOccupancyGrid * occ_grid, Logger* logger, Configuration* config)
  : AbstractSearch( occ_grid, logger ),
    logger_( logger )
 {
@@ -57,7 +57,7 @@ Search::Search( LaserOccupancyGrid * occ_grid, Logger* logger, Configuration* co
 }
 
 /** Destructor */
-Search::~Search()
+SearchAStar::~SearchAStar()
 {
   delete astar_;
 }
@@ -70,7 +70,7 @@ Search::~Search()
  * @param target_y Target y position in grid
    */
 void
-Search::update( int robo_x, int robo_y, int target_x, int target_y )
+SearchAStar::update( int robo_x, int robo_y, int target_x, int target_y )
 {
   updated_successful_ = false;
 
@@ -113,7 +113,7 @@ Search::update( int robo_x, int robo_y, int target_x, int target_y )
 
 
 point_t
-Search::calculate_local_target()
+SearchAStar::calculate_local_target()
 {
   point_t target = robo_position_;
   point_t prev   = robo_position_;
@@ -137,7 +137,7 @@ Search::calculate_local_target()
 
 
 point_t
-Search::adjust_waypoint( const point_t &local_target )
+SearchAStar::adjust_waypoint( const point_t &local_target )
 {
   return local_target;
 }
@@ -147,7 +147,7 @@ Search::adjust_waypoint( const point_t &local_target )
 // forward and backward plans should no longer make a difference in
 //   trajectory searching
 point_t
-Search::calculate_local_trajec_point( )
+SearchAStar::calculate_local_trajec_point( )
 {
   int x = robo_position_.x;
   int y = robo_position_.y;
@@ -189,7 +189,7 @@ Search::calculate_local_trajec_point( )
 
 // checks per raytracing, if an obstacle is between two points.
 bool
-Search::is_obstacle_between( const point_t &a, const point_t &b, const int maxcount )
+SearchAStar::is_obstacle_between( const point_t &a, const point_t &b, const int maxcount )
 {
   if (a.x == b.x && a.y == b.y)
     return false;

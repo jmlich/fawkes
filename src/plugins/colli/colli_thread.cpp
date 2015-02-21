@@ -661,7 +661,7 @@ ColliThread::initialize_modules()
 
   try {
     // THIRD(!): the search component (it uses the occ grid (without the laser)
-    search_ = new Search( occ_grid_, logger, config );
+    search_ = new SearchAStar( occ_grid_, logger, config );
   } catch(Exception &e) {
     logger->log_error(name(), "Could not created new search (%s)", e.what_no_backtrace());
     delete occ_grid_;
