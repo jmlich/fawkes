@@ -48,6 +48,7 @@ namespace fawkes
 
   class LaserOccupancyGrid;
   class Search;
+  class AbstractSearch;
 
   class SelectDriveMode;
   class BaseMotorInstruct;
@@ -102,7 +103,7 @@ class ColliThread
   fawkes::colli_data_t           colli_data_;         // Colli Data Object
 
   fawkes::LaserOccupancyGrid*    occ_grid_;     // the grid to drive on
-  fawkes::Search*                search_;           // our plan module which calculates the info
+  fawkes::AbstractSearch*        search_;           // our plan module which calculates the info
 
   fawkes::SelectDriveMode*       select_drive_mode_;  // the drive mode selection module
   fawkes::BaseMotorInstruct*     motor_instruct_;    // the motor instructor module

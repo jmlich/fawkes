@@ -42,6 +42,7 @@ namespace ros {
 namespace fawkes {
   class LaserOccupancyGrid;
   class Search;
+  class AbstractSearch;
   class RoboShapeColli;
   typedef struct point_struct point_t;
 }
@@ -61,13 +62,13 @@ class ColliVisualizationThread
   virtual void finalize();
 
   virtual void setup(fawkes::LaserOccupancyGrid* occ_grid,
-                     fawkes::Search* search);
+                     fawkes::AbstractSearch* search);
 
  private:
   fawkes::Mutex mutex_;
 
   fawkes::LaserOccupancyGrid *occ_grid_;
-  fawkes::Search             *search_;
+  fawkes::AbstractSearch     *search_;
   fawkes::RoboShapeColli    *roboshape_;
   fawkes::colli_cell_cost_t   cell_costs_;
 

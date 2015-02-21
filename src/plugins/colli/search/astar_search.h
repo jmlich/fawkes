@@ -53,15 +53,6 @@ class Search: public AbstractSearch
   ///\brief update complete plan things
   void update( int robo_x, int robo_y, int target_x, int target_y );
 
-  ///\brief returns, if the update was successful or not.
-  bool updated_successful();
-
-  ///\brief Get the current plan
-  std::vector<point_t>* get_plan();
-
-  ///\brief Get the robot's position in the grid, used for the plan
-  point_t get_robot_position();
-
  private:
 
   /** Returns the current, modified waypoint to drive to. */
@@ -76,12 +67,8 @@ class Search: public AbstractSearch
   /** Method for checking if an obstacle is between two points. */
   bool is_obstacle_between( const point_t &a, const point_t &b, const int maxcount );
 
-
   AStar * astar_;              /**< the A* search algorithm */
-  std::vector< point_t > plan_; /**< the local representation of the plan */
 
-  point_t robo_position_, target_position_;
-  bool updated_successful_;
   int cfg_search_line_allowed_cost_max_; /**< the config value for the max allowed costs on the line search on the a-star result */
 
   fawkes::Logger* logger_;

@@ -59,7 +59,7 @@ class AbstractSearch
   /** Checks if the update was successful.
    * @return true if "update(...)" was successful, fals otherwise.
    */
-  virtual bool updated_successful() = 0;
+  bool updated_successful();
 
   /** return pointer to the local target. do not modify afterwards
    *  precondition: update has to be called before this is ok here
@@ -71,6 +71,12 @@ class AbstractSearch
    */
   const point_t& get_local_trajec();
 
+  ///\brief Get the current plan
+  std::vector<point_t>* get_plan();
+
+  ///\brief Get the robot's position in the grid, used for the plan
+  point_t get_robot_position();
+
  protected:
   LaserOccupancyGrid * occ_grid_; /**< The occupancy grid */
 
@@ -78,6 +84,12 @@ class AbstractSearch
   point_t local_trajec_;  /**< the calculated trajectory where to drive to */
 
   colli_cell_cost_t cell_costs_; /**< The costs for cells in occupancy grid */
+
+  std::vector< point_t > plan_; /**< the local representation of the plan */
+  point_t robo_position_, target_position_;
+
+  bool updated_successful_;
+
 };
 
 
@@ -117,6 +129,34 @@ inline const point_t&
 AbstractSearch::get_local_trajec()
 {
   return local_trajec_;
+}
+
+/** Check, if the update was successful or not.
+ * precondition: update had to be called.
+ * @return true, if update was successfule.
+ */
+inline bool
+AbstractSearch::updated_successful()
+{
+  return updated_successful_;
+}
+
+/** Get the current plan
+ * @return vector containing all the points in the grid along the plan
+ */
+inline std::vector<point_t>*
+AbstractSearch::get_plan()
+{
+  return &plan_;
+}
+
+/** Get the robot's position in the grid, used for the plan
+ * @return Robot's position in the grid
+ */
+inline point_t
+AbstractSearch::get_robot_position()
+{
+  return robo_position_;
 }
 
 } // namespace fawkes

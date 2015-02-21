@@ -104,35 +104,6 @@ Search::update( int robo_x, int robo_y, int target_x, int target_y )
   }
 }
 
-
-/** Check, if the update was successful or not.
- * precondition: update had to be called.
- * @return true, if update was successfule.
- */
-bool
-Search::updated_successful()
-{
-  return updated_successful_;
-}
-
-/** Get the current plan
- * @return vector containing all the points in the grid along the plan
- */
-std::vector<point_t>*
-Search::get_plan()
-{
-  return &plan_;
-}
-
-/** Get the robot's position in the grid, used for the plan
- * @return Robot's position in the grid
- */
-point_t
-Search::get_robot_position()
-{
-  return robo_position_;
-}
-
 /* **************************************************************************** */
 /* **************************************************************************** */
 /* *********** P R I V A T E  -   S T U F F *********************************** */

@@ -198,7 +198,7 @@ ColliVisualizationThread::loop()
 
 void
 ColliVisualizationThread::setup(LaserOccupancyGrid* occ_grid,
-                                Search* search)
+                                AbstractSearch* search)
 {
   MutexLocker lock(&mutex_);
   search_   = search;
