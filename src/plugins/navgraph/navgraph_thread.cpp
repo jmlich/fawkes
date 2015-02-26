@@ -641,9 +641,6 @@ NavGraphThread::send_next_goal()
       throw Exception("No writer for navigator interface");
     }
 
-    nav_if_->msgq_enqueue(stop_at_target_msg);
-    nav_if_->msgq_enqueue(orient_mode_msg);
-
     logger->log_debug(name(), "Sending goto(x=%f,y=%f,ori=%f) for node '%s'",
 		      tpose.getOrigin().x(), tpose.getOrigin().y(),
 		      tf::get_yaw(tpose.getRotation()), next_target.name().c_str());
