@@ -40,6 +40,11 @@ namespace fawkes {
 }
 #endif
 
+namespace navgraph {
+  const char *PROP_ORIENTATION = "orientation";
+} // end of namespace fawkes::navgraph
+
+
 /** @class NavGraph <navgraph/navgraph.h>
  * Topological map graph.
  * This class represents a topological graph using 2D map coordinates
@@ -305,6 +310,30 @@ NavGraph::closest_node_to(const std::string &node_name, bool consider_unconnecte
 }
 
 
+/** Get a specified edge.
+ * @param from originating node name
+ * @param to target node name
+ * @return the edge representation for the edge with the given
+ * originating and target nodes or an invalid edge if the edge
+ * cannot be found
+ */
+NavGraphEdge
+NavGraph::edge(const std::string &from, const std::string &to) const
+{
+  std::vector<NavGraphEdge>::const_iterator e =
+    std::find_if(edges_.begin(), edges_.end(), 
+		 [&from, &to](const NavGraphEdge &edge) {
+		   return (edge.from() == from && edge.to() == to) ||
+		     (! edge.is_directed() && (edge.to() == from && edge.from() == to));
+		 });
+  if (e != edges_.end()) {
+    return *e;
+  } else {
+    return NavGraphEdge();
+  }
+}
+
+
 /** Get edge closest to a specified point.
  * The point must be within an imaginery line segment parallel to
  * the edge, that is a line perpendicular to the edge must go
@@ -563,6 +592,31 @@ void
 NavGraph::remove_node(const NavGraphNode &node)
 {
   std::remove(nodes_.begin(), nodes_.end(), node);
+  edges_.erase(
+    std::remove_if(edges_.begin(), edges_.end(),
+		   [&node](const NavGraphEdge &edge)->bool {
+		     return edge.from() == node.name() || edge.to() == node.name();
+		   }), edges_.end());
+  reachability_calced_ = false;
+  notify_of_change();
+}
+
+/** Remove a node.
+ * @param node_name name of node to remove
+ */
+void
+NavGraph::remove_node(const std::string &node_name)
+{
+  nodes_.erase(
+    std::remove_if(nodes_.begin(), nodes_.end(),
+		   [&node_name](const NavGraphNode &node)->bool {
+		     return node.name() == node_name;
+		   }), nodes_.end());
+  edges_.erase(
+    std::remove_if(edges_.begin(), edges_.end(),
+		   [&node_name](const NavGraphEdge &edge)->bool {
+		     return edge.from() == node_name || edge.to() == node_name;
+		   }), edges_.end());
   reachability_calced_ = false;
   notify_of_change();
 }
@@ -573,7 +627,29 @@ NavGraph::remove_node(const NavGraphNode &node)
 void
 NavGraph::remove_edge(const NavGraphEdge &edge)
 {
-  std::remove(edges_.begin(), edges_.end(), edge);
+  edges_.erase(
+    std::remove_if(edges_.begin(), edges_.end(),
+		   [&edge](const NavGraphEdge &e)->bool {
+		     return (edge.from() == e.from() && edge.to() == e.to()) ||
+		       (! e.is_directed() && (edge.from() == e.to() && edge.to() == e.from()));
+		   }), edges_.end());
+  reachability_calced_ = false;
+  notify_of_change();
+}
+
+/** Remove an edge
+ * @param from originating node name
+ * @param to target node name
+ */
+void
+NavGraph::remove_edge(const std::string &from, const std::string &to)
+{
+  edges_.erase(
+    std::remove_if(edges_.begin(), edges_.end(),
+		   [&from, &to](const NavGraphEdge &edge)->bool {
+		     return (edge.from() == from && edge.to() == to) ||
+		       (! edge.is_directed() && (edge.to() == from && edge.from() == to));
+		   }), edges_.end());
   reachability_calced_ = false;
   notify_of_change();
 }
@@ -1092,10 +1168,11 @@ NavGraph::assert_connected()
 
 /** Calculate eachability relations.
  * This will set the directly reachable nodes on each
- * of the graph nodes. 
+ * of the graph nodes.
+ * @param allow_multi_graph if true, allows multiple disconnected graph segments.
  */
 void
-NavGraph::calc_reachability()
+NavGraph::calc_reachability(bool allow_multi_graph)
 {
   if (nodes_.empty())  return;
 
@@ -1105,6 +1182,8 @@ NavGraph::calc_reachability()
   for (i = nodes_.begin(); i != nodes_.end(); ++i) {
     i->set_reachable_nodes(reachable_nodes(i->name()));
   }
+  if (! allow_multi_graph)  assert_connected();
+  reachability_calced_ = true;
 
   std::vector<NavGraphEdge>::iterator e;
   for (e = edges_.begin(); e != edges_.end(); ++e) {

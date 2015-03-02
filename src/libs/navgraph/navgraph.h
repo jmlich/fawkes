@@ -48,6 +48,8 @@ namespace navgraph {
   typedef
   std::function<float (const fawkes::NavGraphNode &, const fawkes::NavGraphNode &)>
       CostFunction;
+
+  extern const char *PROP_ORIENTATION;
 }
 
 class NavGraphConstraintRepo;
@@ -105,6 +107,7 @@ class NavGraph
   NavGraphNode closest_node_to_with_unconnected(const std::string &node_name,
 						const std::string &property = "") const;
 
+  NavGraphEdge edge(const std::string &from, const std::string &to) const;
   NavGraphEdge closest_edge(float pos_x, float pos_y) const;
 
   std::vector<NavGraphNode> search_nodes(const std::string &property) const;
@@ -135,7 +138,9 @@ class NavGraph
   void connect_node_to_closest_edge(const NavGraphNode &n);
   void add_edge(const NavGraphEdge &edge);
   void remove_node(const NavGraphNode &node);
+  void remove_node(const std::string &node_name);
   void remove_edge(const NavGraphEdge &edge);
+  void remove_edge(const std::string &from, const std::string &to);
   void clear();
 
   void update_node(const NavGraphNode &node);
@@ -146,7 +151,7 @@ class NavGraph
   bool edge_exists(const NavGraphEdge &edge) const;
   bool edge_exists(const std::string &from, const std::string &to) const;
 
-  void calc_reachability();
+  void calc_reachability(bool allow_multi_graph = false);
 
   NavGraph & operator=(const NavGraph &g);
 
