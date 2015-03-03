@@ -394,8 +394,12 @@ NavGraphPath::Traversal::remaining_cost() const
   if (current_ < 0)  return path_->cost();
 
   float cost = 0.;
+  std::vector<NavGraphNode> nodes_so_far;
+
   for (ssize_t i = current_; i < (ssize_t)path_->nodes_.size() - 1; ++i) {
-    cost += path_->graph_->cost(path_->nodes_[i], path_->nodes_[i+1]);
+    nodes_so_far.push_back(path_->nodes_[i]);
+    NavGraphPath * path = new NavGraphPath(path_->graph_,nodes_so_far);
+    cost += path_->graph_->cost(* path, path_->nodes_[i+1]);
   }
 
   return cost;

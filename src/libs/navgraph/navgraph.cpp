@@ -839,6 +839,9 @@ NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
 
   std::vector<AStarState *> a_star_solution;
 
+  std::vector<NavGraphNode> nodes;
+  nodes.push_back(from);
+  NavGraphPath *new_path = new NavGraphPath(this, nodes);
   if (use_constraints) {
     constraint_repo_.lock();
     if (compute_constraints && constraint_repo_->has_constraints()) {
@@ -846,22 +849,24 @@ NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
     }
 
     NavGraphSearchState *initial_state =
-      new NavGraphSearchState(from, to, this, estimate_func, cost_func,
+      new NavGraphSearchState(*new_path, to, this, estimate_func, cost_func,
 			      *constraint_repo_);
     a_star_solution =  astar.solve(initial_state);
     constraint_repo_.unlock();
   } else {
     NavGraphSearchState *initial_state =
-      new NavGraphSearchState(from, to, this, estimate_func, cost_func);
+      new NavGraphSearchState(*new_path, to, this, estimate_func, cost_func);
     a_star_solution =  astar.solve(initial_state);
   }
 
-  std::vector<fawkes::NavGraphNode> path(a_star_solution.size());
+  /*std::vector<fawkes::NavGraphNode> path(a_star_solution.size());
   NavGraphSearchState *solstate;
   for (unsigned int i = 0; i < a_star_solution.size(); ++i ) {
     solstate = dynamic_cast<NavGraphSearchState *>(a_star_solution[i]);
-    path[i] = solstate->node();
-  }
+    path[i] = solstate->path().nodes().back();
+  }*/
+  NavGraphSearchState *solstate = dynamic_cast<NavGraphSearchState *>(a_star_solution.back());
+  std::vector<fawkes::NavGraphNode> path(solstate->path().nodes());
 
   float cost =
     (! a_star_solution.empty())
@@ -872,7 +877,7 @@ NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
 }
 
 
-/** Calculate cost between two adjacent nodes.
+/** Calculate cost of a path with an additional node.
  * It is not verified whether the nodes are actually adjacent, but the cost
  * function is simply applied. This is done to increase performance.
  * The calculation will use the currently registered cost function.
@@ -881,7 +886,7 @@ NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
  * @return cost from @p from to @p to
  */
 float
-NavGraph::cost(const NavGraphNode &from, const NavGraphNode &to) const
+NavGraph::cost(const NavGraphPath &from, const NavGraphNode &to) const
 {
   return search_cost_func_(from, to);
 }

@@ -419,7 +419,11 @@ NavGraphThread::replan(const NavGraphNode &start, const NavGraphNode &goal)
   if (! new_path.empty()) {
     // get cost of current plan
     NavGraphNode pose("current-pose", pose_.getOrigin().x(), pose_.getOrigin().y());
-    float old_cost = graph_->cost(pose, traversal_.current()) + traversal_.remaining_cost();
+    // TODO: better conversion frpom const vector to vector
+    std::vector<fawkes::NavGraphNode> non_const_nodes = path_.nodes();
+    NavGraphPath new_path(* graph_,non_const_nodes);
+    new_path.add_node(pose);
+    float old_cost = graph_->cost(new_path, traversal_.current()) + traversal_.remaining_cost();
     float new_cost = new_path.cost();
 
     if (new_cost <= old_cost * cfg_replan_factor_) {
