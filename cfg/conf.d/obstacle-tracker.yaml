@@ -1,0 +1,24 @@
+%YAML 1.2
+%TAG ! tag:fawkesrobotics.org,cfg/
+---
+doc-url: !url http://trac.fawkesrobotics.org/wiki/Plugins/obstacle-tracker
+---
+
+obstacle-tracker:
+  # Prefix for position interfaces that will be opened with cluster
+  # centroid information.
+  laser-cluster-interface-prefix: "/laser-cluster/robots/"
+
+  # Prefix for Velocity3DInterfaces that will be opened based on 
+  # existing laser-clusters
+  cluster-velocity-interface-prefix: "/cluster-velocities/robots/"
+
+  # Minimum visibility history value a cluster must have before it is
+  # considered for determining blockade information
+  min-visibility-history: 5
+
+  # number of items used for the moving average
+  # average = Sum(items) / moving-average-number:
+  moving-average-number: 15
+  
+  
