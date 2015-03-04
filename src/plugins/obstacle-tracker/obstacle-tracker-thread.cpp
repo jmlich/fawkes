@@ -200,5 +200,24 @@ ObstacleTrackerThread::loop()
 	        	logger->log_info(name(), "Failed to track cluster %s, ignoring", pif->uid());
 	        }
 	  }
-  }
-}
+
+	  // if there are items within the buffer and visibility history is less than 5
+	  else if (obstacle_map_[id].size()>0) {
+
+		  // clear buffer - so that old values will not be used
+		  obstacle_map_[id].clear();
+
+		  // clear Interface
+		  double zero_val_three[3] = {0, 0, 0};
+		  double zero_val_four[4] = {0, 0, 0, 0};
+      	  vif->set_visibility_history(pif->visibility_history());
+      	  vif->set_translation(zero_val_three);
+      	  vif->set_rotation(zero_val_four);
+      	  vif->set_linear_velocity( zero_val_three );
+      	  vif->set_absolute_linear_velocity(0);
+      	  vif->write();
+
+	  }
+
+  }// end for
+}// end loop
