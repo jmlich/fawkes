@@ -4,7 +4,7 @@
  *
  *  Created: Sat Jul 13 12:00:00 2013
  *  Copyright  2013-2014  Bahram Maleki-Fard
- *                  2014  Tobias Neumann
+ *             2014-2015  Tobias Neumann
  *
  ****************************************************************************/
 
@@ -32,6 +32,7 @@
 #include "drive_realization/quadratic_motor_instruct.h"
 #include "search/og_laser.h"
 #include "search/astar_search.h"
+#include "search/astar_speed_search.h"
 
 #include <core/threading/mutex.h>
 #include <baseapp/run.h>
@@ -120,6 +121,8 @@ ColliThread::init()
     cfg_motor_instruct_mode_ = fawkes::colli_motor_instruct_mode_t::linear;
     throw fawkes::Exception("Motor instruct mode is unknown, use linear");
   }
+
+  cfg_use_astar_speed_ = config->get_bool((cfg_prefix + "search/a_star/use_a_star_speed").c_str());
 
   cfg_prefix += "occ_grid/";
   occ_grid_width_        = config->get_float((cfg_prefix + "width").c_str());
@@ -661,7 +664,11 @@ ColliThread::initialize_modules()
 
   try {
     // THIRD(!): the search component (it uses the occ grid (without the laser)
-    search_ = new SearchAStar( occ_grid_, logger, config );
+    if ( cfg_use_astar_speed_ ) {
+      search_ = new SearchAStarSpeed( occ_grid_, logger, config );
+    } else {
+      search_ = new SearchAStar( occ_grid_, logger, config );
+    }
   } catch(Exception &e) {
     logger->log_error(name(), "Could not created new search (%s)", e.what_no_backtrace());
     delete occ_grid_;

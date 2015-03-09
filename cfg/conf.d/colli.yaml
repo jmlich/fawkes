@@ -231,6 +231,11 @@ plugins/colli:
 
   search:
     a_star:
+      # false: default behaviour, plain astar
+      # true:  astar with higher cost for turning and consideration of initial speed
+      use_a_star_speed: true
+      a_star_speed:
+        turn_factor: 2.0
       # maximum number of states the colli uses to search for a path.
       # The more states the better the search, but the slower the algorithm
       max_states: 15000

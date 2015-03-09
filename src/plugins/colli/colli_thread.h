@@ -4,7 +4,7 @@
  *
  *  Created: Wed Oct 16 18:00:00 2013
  *  Copyright  2013-2014  Bahram Maleki-Fard
- *                  2014  Tobias Neumann
+ *             2014-2015  Tobias Neumann
  *
  ****************************************************************************/
 
@@ -48,6 +48,7 @@ namespace fawkes
 
   class LaserOccupancyGrid;
   class SearchAStar;
+  class SearchAStarSpeed;
   class AbstractSearch;
 
   class SelectDriveMode;
@@ -127,6 +128,7 @@ class ColliThread
   fawkes::colli_trans_rot_t proposed_; // the proposed trans-rot that should be realized in MotorInstruct
 
   bool cfg_write_spam_debug_;
+  bool cfg_use_astar_speed_;
   bool cfg_emergency_stop_enabled_;    // true if emergency stop is used
   float cfg_emergency_threshold_distance_; // threshold distance if emergency stop triggers
   float cfg_emergency_threshold_velocity_; // threshold velocity if emergency stop triggers
