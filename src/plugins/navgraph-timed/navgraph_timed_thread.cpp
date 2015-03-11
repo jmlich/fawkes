@@ -44,7 +44,7 @@ NavGraphTimedThread::init()
 void
 NavGraphTimedThread::finalize()
 {
-  navgraph->set_search_funcs(NavGraphSearchState::straight_line_estimate, NavGraphSearchState::euclidean_cost);
+  navgraph->unset_search_funcs();
 }
 
 void
