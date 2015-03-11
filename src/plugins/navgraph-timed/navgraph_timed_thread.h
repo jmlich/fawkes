@@ -28,7 +28,6 @@
 #include <aspect/blackboard.h>
 #include <navgraph/aspect/navgraph.h>
 #include <navgraph/navgraph.h>
-#include <navgraph/search_state.h>
 
 class NavGraphTimedThread
 : public fawkes::Thread,
