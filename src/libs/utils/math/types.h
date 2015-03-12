@@ -107,10 +107,25 @@ typedef struct {
 } rectangle_t;
 
 /** Position on the field. */
-typedef struct {
+typedef struct field_pos_t_struct {
   float x;      /**< x coordinate in meters */
   float y;      /**< y coordinate in meters */
   float ori;    /**< orientation */
+
+  field_pos_t_struct()
+  {
+    x   = 0;
+    y   = 0;
+    ori = 0;
+  }
+
+  field_pos_t_struct(float x_in, float y_in, float ori_in)
+  {
+    x   = x_in;
+    y   = y_in;
+    ori = ori_in;
+  }
+
 } field_pos_t;
 
 /** Describes a field line */
