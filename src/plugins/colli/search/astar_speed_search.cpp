@@ -96,7 +96,7 @@ SearchAStarSpeed::update( int robo_x, int robo_y, int target_x, int target_y, fl
     target_position_ = point_t( target_x, target_y );
   }
 
-  astar_->solve( robo_position_, target_position_, plan_ );
+  astar_->solve( robo_position_, target_position_, robo_speed_, plan_ );
 
   if (plan_.size() > 0) {
     updated_successful_ = true;

@@ -108,7 +108,7 @@ AStarSpeed::~AStarSpeed()
  * @param solution a vector that will be filled with the found path
  */
 void
-AStarSpeed::solve( const point_t &robo_pos, const point_t &target_pos, vector<point_t> &solution )
+AStarSpeed::solve( const point_t &robo_pos, const point_t &target_pos, const field_pos_t &robo_speed, vector<point_t> &solution )
 {
   // initialize counter, vectors/lists/queues
   astar_state_count_ = 0;
@@ -118,16 +118,32 @@ AStarSpeed::solve( const point_t &robo_pos, const point_t &target_pos, vector<po
   solution.clear();
 
   // setting start coordinates
-  robo_pos_.x_  = robo_pos.x;
-  robo_pos_.y_  = robo_pos.y;
-  target_state_.x_ = target_pos.x;
-  target_state_.y_ = target_pos.y;
+  robo_pos_.x_      = robo_pos.x;
+  robo_pos_.y_      = robo_pos.y;
+  target_state_.x_  = target_pos.x;
+  target_state_.y_  = target_pos.y;
+
+  if ( fabs(robo_speed.x) > fabs(robo_speed.y) ) {      // if more x than y
+    robo_pos_past_.y_ = robo_pos.y;
+    if ( robo_speed.x > 0 ) {                             // if x positive
+      robo_pos_past_.x_ = robo_pos.x - 1;                   // previous point is behind
+    } else {                                              // otherwise
+      robo_pos_past_.x_ = robo_pos.x + 1;                   // previous point is ahead
+    }
+  } else {                                              // otherwise (less x than y)
+    robo_pos_past_.x_ = robo_pos.x;
+    if ( robo_speed.y > 0 ) {                             // if y positive
+      robo_pos_past_.y_ = robo_pos.y - 1;                   // previous point is right
+    } else {                                              // otherwise
+      robo_pos_past_.y_ = robo_pos.y + 1;                   // previous point is left
+    }
+  }
 
   // generating initialstate
   AStarState * initial_state = astar_states_[++astar_state_count_];
   initial_state->x_ = robo_pos_.x_;
   initial_state->y_ = robo_pos_.y_;
-  initial_state->father_   = 0;
+  initial_state->father_   = &robo_pos_past_;
   initial_state->past_cost_  = 0;
   initial_state->total_cost_ = heuristic( initial_state );
 
@@ -354,7 +370,7 @@ void
 AStarSpeed::get_solution_sequence( AStarState * node, vector<point_t> &solution )
 {
   AStarState * state = node;
-  while ( state != 0 ) {
+  while ( state != &robo_pos_past_ ) {
     solution.insert( solution.begin(), point_t( state->x_, state->y_ ) );
     state = state->father_;
   }

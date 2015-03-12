@@ -61,7 +61,7 @@ class AStarSpeed
    *    target point.
    *  Performing astar search over the occupancy grid and returning the solution.
    */
-  void solve( const point_t &robo_pos, const point_t &target_pos, std::vector<point_t> &solution );
+  void solve( const point_t &robo_pos, const point_t &target_pos, const field_pos_t &robo_speed, std::vector<point_t> &solution );
 
   ///\brief Method, returning the nearest point outside of an obstacle.
   point_t remove_target_from_obstacle( int target_x, int target_y, int step_x, int step_y );
@@ -83,6 +83,7 @@ class AStarSpeed
   // this is the local robot position and target point.
   AStarState robo_pos_;
   AStarState target_state_;
+  AStarState robo_pos_past_;
 
   // This is a state vector...
   // It is for speed purposes. So I do not have to do a new each time
