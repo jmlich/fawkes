@@ -71,14 +71,15 @@ SearchAStarSpeed::~SearchAStarSpeed()
  * @param target_y Target y position in grid
    */
 void
-SearchAStarSpeed::update( int robo_x, int robo_y, int target_x, int target_y )
+SearchAStarSpeed::update( int robo_x, int robo_y, int target_x, int target_y, float robo_vx, float robo_vy, float robo_omega )
 {
   updated_successful_ = false;
 
   // check, if a position is in an obstacle
   robo_position_    = point_t( robo_x, robo_y );
   local_target_     = point_t( robo_x, robo_y );
-  local_trajec_ = point_t( robo_x, robo_y );
+  local_trajec_     = point_t( robo_x, robo_y );
+  robo_speed_       = field_pos_t( robo_vx, robo_vy, robo_omega );
 
   if ( occ_grid_->get_prob( target_x, target_y ) >= cell_costs_.occ ) {
     int step_x = 1;  // initializing to 1

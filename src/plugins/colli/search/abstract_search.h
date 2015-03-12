@@ -54,7 +54,7 @@ class AbstractSearch
    * @param target_x Target x position in grid
    * @param target_y Target y position in grid
    */
-  virtual void update( int robo_x, int robo_y, int target_x, int target_y ) = 0;
+  virtual void update( int robo_x, int robo_y, int target_x, int target_y, float robo_vx, float robo_vy, float robo_omega ) = 0;
 
   /** Checks if the update was successful.
    * @return true if "update(...)" was successful, fals otherwise.
@@ -87,6 +87,7 @@ class AbstractSearch
 
   std::vector< point_t > plan_; /**< the local representation of the plan */
   point_t robo_position_, target_position_;
+  field_pos_t robo_speed_;
 
   bool updated_successful_;
 

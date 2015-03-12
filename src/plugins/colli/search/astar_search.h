@@ -51,7 +51,7 @@ class SearchAStar: public AbstractSearch
   virtual ~SearchAStar();
 
   ///\brief update complete plan things
-  void update( int robo_x, int robo_y, int target_x, int target_y );
+  void update( int robo_x, int robo_y, int target_x, int target_y, float robo_vx, float robo_vy, float robo_omega );
 
  private:
 
