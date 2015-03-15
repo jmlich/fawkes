@@ -39,6 +39,7 @@
 #include <utils/time/wait.h>
 #include <interfaces/MotorInterface.h>
 #include <interfaces/Laser360Interface.h>
+#include <interfaces/Velocity3DInterface.h>
 #include <interfaces/NavigatorInterface.h>
 #include <utils/math/common.h>
 #include <tf/time_cache.h>
@@ -90,10 +91,11 @@ ColliThread::init()
   cfg_frame_base_  = config->get_string((cfg_prefix + "frame/base").c_str());
   cfg_frame_laser_ = config->get_string((cfg_prefix + "frame/laser").c_str());
 
-  cfg_iface_motor_        = config->get_string((cfg_prefix + "interface/motor").c_str());
-  cfg_iface_laser_        = config->get_string((cfg_prefix + "interface/laser").c_str());
-  cfg_iface_colli_        = config->get_string((cfg_prefix + "interface/colli").c_str());
-  cfg_iface_read_timeout_ = config->get_float((cfg_prefix + "interface/read_timeout").c_str());
+  cfg_iface_motor_            = config->get_string((cfg_prefix + "interface/motor").c_str());
+  cfg_iface_laser_            = config->get_string((cfg_prefix + "interface/laser").c_str());
+  cfg_iface_prefix_velocitys_ = config->get_string("/obstacle-tracker/cluster-velocity-interface-prefix");
+  cfg_iface_colli_            = config->get_string((cfg_prefix + "interface/colli").c_str());
+  cfg_iface_read_timeout_     = config->get_float((cfg_prefix + "interface/read_timeout").c_str());
 
   cfg_write_spam_debug_    = config->get_bool((cfg_prefix + "write_spam_debug").c_str());
 
@@ -640,8 +642,15 @@ ColliThread::open_interfaces()
 {
   if_motor_ = blackboard->open_for_reading<MotorInterface>(cfg_iface_motor_.c_str());
   if_laser_ = blackboard->open_for_reading<Laser360Interface>(cfg_iface_laser_.c_str());
+
   if_motor_->read();
   if_laser_->read();
+
+  if_velocitys_ = blackboard->open_multiple_for_reading<fawkes::Velocity3DInterface>((cfg_iface_prefix_velocitys_ + "*").c_str());
+  for (Velocity3DInterface *pif : if_velocitys_) {
+    pif->read();
+    logger->log_info(name(), "%s: (%lf,\t%lf,\t%lf)", pif->id(), pif->linear_velocity(0), pif->linear_velocity(1), pif->linear_velocity(2));
+  }
 
   if_colli_target_ = blackboard->open_for_writing<NavigatorInterface>(cfg_iface_colli_.c_str());
   if_colli_target_->set_final( true );

@@ -44,6 +44,7 @@ namespace fawkes
 
   class MotorInterface;
   class Laser360Interface;
+  class Velocity3DInterface;
   class NavigatorInterface;
 
   class LaserOccupancyGrid;
@@ -100,6 +101,7 @@ class ColliThread
    */
   fawkes::MotorInterface*        if_motor_;           // MotorObject
   fawkes::Laser360Interface*     if_laser_;           // LaserScannerObject
+  std::list<fawkes::Velocity3DInterface*>  if_velocitys_; // List of objects and there velocity
   fawkes::NavigatorInterface*    if_colli_target_;    // TargetObject
   fawkes::colli_data_t           colli_data_;         // Colli Data Object
 
@@ -166,6 +168,7 @@ class ColliThread
 
   std::string cfg_iface_motor_;   /**< The ID of the MotorInterface */
   std::string cfg_iface_laser_;   /**< The ID of the LaserInterface */
+  std::string cfg_iface_prefix_velocitys_;   /**< The ID of the LaserInterface */
   std::string cfg_iface_colli_;   /**< The ID of the NavigatorInterface for colli target*/
   float cfg_iface_read_timeout_;  /**< Maximum age (in seconds) of required data from reading interfaces*/
 

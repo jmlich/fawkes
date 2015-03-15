@@ -26,7 +26,7 @@ UTILS = utils/rob utils/geometry utils/occupancygrid drive_realization drive_mod
 
 LIBS_colli = fawkescore fawkesutils fawkesaspects fawkesblackboard fawkestf \
              fawkesinterface fawkesbaseapp \
-	     MotorInterface Laser360Interface  NavigatorInterface
+	     MotorInterface Laser360Interface Velocity3DInterface NavigatorInterface
 
 OBJS_colli = $(patsubst %.cpp,%.o,$(patsubst qa/%,,$(subst $(SRCDIR)/,,$(wildcard $(SRCDIR)/*.cpp $(foreach d,$(UTILS),$(SRCDIR)/$d/*.cpp )))))
 
