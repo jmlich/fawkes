@@ -552,20 +552,11 @@ ColliThread::colli_execute_()
         occ_grid_->reset_old();
 
       } else {
-        // transform robot speed (of motor) from odom frame to base_laser
-        tf::Pose robo_v_odom( tf::create_quaternion_from_yaw(if_motor_->des_omega()),
-                              tf::Vector3(if_motor_->des_vx(), if_motor_->des_vy(), 0)
-        );
-
-        tf::Stamped<tf::Pose> robo_v_odom_stamped( robo_v_odom, fawkes::Time(0,0), "/odom");
-        tf::Stamped<tf::Pose> robo_v_local_stamped;
-        tf_listener->transform_pose("/base_laser", robo_v_odom_stamped, robo_v_local_stamped);
-
-        // search for a path
         search_->update( robo_grid_pos_.x, robo_grid_pos_.y,
                         (int)target_grid_pos_.x, (int)target_grid_pos_.y,
-                        robo_v_local_stamped.getOrigin().x(), robo_v_local_stamped.getOrigin().y(), tf::get_yaw(robo_v_local_stamped)
+                        if_motor_->des_vx(), if_motor_->des_vy(), if_motor_->des_omega()
         );
+
         if ( search_->updated_successful() ) {
           // path exists
           local_grid_target_ = search_->get_local_target();

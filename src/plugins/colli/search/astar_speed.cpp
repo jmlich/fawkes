@@ -123,19 +123,19 @@ AStarSpeed::solve( const point_t &robo_pos, const point_t &target_pos, const fie
   target_state_.x_  = target_pos.x;
   target_state_.y_  = target_pos.y;
 
-  if ( fabs(robo_speed.x) > fabs(robo_speed.y) ) {      // if more x than y
-    robo_pos_past_.y_ = robo_pos.y;
-    if ( robo_speed.x > 0 ) {                             // if x positive
-      robo_pos_past_.x_ = robo_pos.x - 1;                   // previous point is behind
+  if ( fabs(robo_speed.x) >= fabs(robo_speed.y) ) {      // if more x than y
+    robo_pos_past_.y_ = robo_pos_.y_;
+    if ( robo_speed.x >= 0 ) {                             // if x positive
+      robo_pos_past_.x_ = robo_pos_.x_ - 1;                   // previous point is behind
     } else {                                              // otherwise
-      robo_pos_past_.x_ = robo_pos.x + 1;                   // previous point is ahead
+      robo_pos_past_.x_ = robo_pos_.x_ + 1;                   // previous point is ahead
     }
   } else {                                              // otherwise (less x than y)
-    robo_pos_past_.x_ = robo_pos.x;
-    if ( robo_speed.y > 0 ) {                             // if y positive
-      robo_pos_past_.y_ = robo_pos.y - 1;                   // previous point is right
+    robo_pos_past_.x_ = robo_pos_.x_;
+    if ( robo_speed.y >= 0 ) {                             // if y positive
+      robo_pos_past_.y_ = robo_pos_.y_ - 1;                   // previous point is right
     } else {                                              // otherwise
-      robo_pos_past_.y_ = robo_pos.y + 1;                   // previous point is left
+      robo_pos_past_.y_ = robo_pos_.y_ + 1;                   // previous point is left
     }
   }
 
