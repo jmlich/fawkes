@@ -134,9 +134,15 @@ NavGraphThread::init()
 
   if (cfg_monitor_file_) {
     logger->log_info(name(), "Enabling graph file monitoring");
-    fam_ = new FileAlterationMonitor();
-    fam_->watch_file(cfg_graph_file_.c_str());
-    fam_->add_listener(this);
+    try {
+      fam_ = new FileAlterationMonitor();
+      fam_->watch_file(cfg_graph_file_.c_str());
+      fam_->add_listener(this);
+    } catch (Exception &e) {
+      logger->log_warn(name(), "Could not enable graph file monitoring");
+      logger->log_warn(name(), e); 
+    }
+
   }
 
   exec_active_       = false;
@@ -197,6 +203,8 @@ NavGraphThread::loop()
     needs_write = true;
 
     if (pp_nav_if_->msgq_first_is<NavigatorInterface::StopMessage>()) {
+      NavigatorInterface::StopMessage *msg = pp_nav_if_->msgq_first(msg);
+      pp_nav_if_->set_msgid(msg->id());
 
       stop_motion();
       exec_active_ = false;
