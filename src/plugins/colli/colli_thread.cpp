@@ -574,7 +574,7 @@ ColliThread::colli_execute_()
 
         } else {
           // stop
-          // logger->log_warn(name(), "Drive Mode: update not successful ---> stopping!");
+          logger->log_warn(name(), "Drive Mode: update not successful ---> stopping!");
           local_target_.x = local_target_.y = 0.f;
           local_trajec_.x = local_trajec_.y = 0.f;
           proposed_.x = proposed_.y = proposed_.rot = 0.f;
