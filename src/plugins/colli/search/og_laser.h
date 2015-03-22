@@ -5,7 +5,7 @@
  *  Created: Fri Oct 18 15:16:23 2013
  *  Copyright  2002  Stefan Jacobs
  *             2013-2014  Bahram Maleki-Fard
- *             2014  Tobias Neumann
+ *             2014-2015  Tobias Neumann
  ****************************************************************************/
 
 /*  This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,9 @@
 #include <utils/math/types.h>
 #include <utils/time/time.h>
 #include <string>
+#include <list>
+
+#include <interfaces/Velocity3DInterface.h>
 
 #include <tf/transformer.h>
 
@@ -40,6 +43,10 @@ namespace fawkes
 #endif
 
 class Laser360Interface;
+class BlackBoardInterfaceListMaintainer;
+//class Velocity3DInterface{
+//  struct Velocity3DInterface_data_t;
+//};
 class RoboShapeColli;
 class ColliObstacleMap;
 
@@ -49,7 +56,7 @@ class Configuration;
 class LaserOccupancyGrid : public OccupancyGrid
 {
  public:
-  LaserOccupancyGrid( Laser360Interface * laser, Logger* logger, Configuration* config, tf::Transformer* listener,
+  LaserOccupancyGrid( Laser360Interface * laser, BlackBoardInterfaceListMaintainer *ifs_velocity, Logger* logger, Configuration* config, tf::Transformer* listener,
                       int width = 150, int height = 150, int cell_width = 5, int cell_height = 5);
   ~LaserOccupancyGrid();
 
@@ -88,6 +95,8 @@ class LaserOccupancyGrid : public OccupancyGrid
 
   void update_laser();
 
+  void update_dynamic_obstacles();
+
   float obstacle_in_path_distance( float vx, float vy );
 
   void validate_old_laser_points(cart_coord_2d_t pos_robot, cart_coord_2d_t pos_new_laser_point);
@@ -117,6 +126,8 @@ class LaserOccupancyGrid : public OccupancyGrid
 
   Logger* logger_;
   Laser360Interface* if_laser_;
+  BlackBoardInterfaceListMaintainer *ifs_velocity_;
+  std::list<Velocity3DInterface::Velocity3DInterface_data_t> velocitys_;
   RoboShapeColli*    robo_shape_; /**< my roboshape */
   ColliObstacleMap*  obstacle_map;  /**< fast obstacle map */
 

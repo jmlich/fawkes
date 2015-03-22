@@ -5,7 +5,7 @@
  *  Created: Fri Oct 18 15:16:23 2013
  *  Copyright  2002  Stefan Jacobs
  *             2013-2014  Bahram Maleki-Fard
- *             2014  Tobias Neumann
+ *             2014-2015  Tobias Neumann
  ****************************************************************************/
 
 /*  This program is free software; you can redistribute it and/or modify
@@ -34,6 +34,7 @@
 #include <config/config.h>
 
 #include <interfaces/Laser360Interface.h>
+#include <blackboard/interface_list_maintainer.h>
 
 #include <cmath>
 
@@ -58,12 +59,14 @@ namespace fawkes
  * @param cell_width The width of a cell (in cm)
  * @param cell_height The height of a cell (in cm)
  */
-LaserOccupancyGrid::LaserOccupancyGrid( Laser360Interface * laser, Logger* logger, Configuration* config, tf::Transformer* listener,
+LaserOccupancyGrid::LaserOccupancyGrid( Laser360Interface * laser, BlackBoardInterfaceListMaintainer *ifs_velocity,
+                                        Logger* logger, Configuration* config, tf::Transformer* listener,
                                         int width, int height, int cell_width, int cell_height)
  : OccupancyGrid( width, height, cell_width, cell_height ),
    tf_listener_(listener ),
    logger_( logger ),
-   if_laser_( laser )
+   if_laser_( laser ),
+   ifs_velocity_( ifs_velocity)
 {
   logger->log_debug("LaserOccupancyGrid", "(Constructor): Entering");
 
@@ -251,6 +254,22 @@ LaserOccupancyGrid::update_laser()
       }
     }
   }
+}
+
+void
+LaserOccupancyGrid::update_dynamic_obstacles()
+{
+  // get list of interfaces
+  std::list<Velocity3DInterface *> ifs_vel = ifs_velocity_->lock_and_get_list<fawkes::Velocity3DInterface>();
+  // copy data of interfaces (the interfaces itself are just to be used untill unlocked)
+  velocitys_.clear();
+  for(  std::list<Velocity3DInterface *>::iterator i = ifs_vel.begin();
+        i != ifs_vel.end();
+        ++i ) {
+    velocitys_.push_back( Velocity3DInterface::Velocity3DInterface_data_t(*i) );
+  }
+  // unlock list of interfaces
+  ifs_velocity_->unlock_list();
 }
 
 /**

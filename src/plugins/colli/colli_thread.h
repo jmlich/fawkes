@@ -44,7 +44,7 @@ namespace fawkes
 
   class MotorInterface;
   class Laser360Interface;
-  class Velocity3DInterface;
+  class BlackBoardInterfaceListMaintainer;
   class NavigatorInterface;
 
   class LaserOccupancyGrid;
@@ -101,7 +101,7 @@ class ColliThread
    */
   fawkes::MotorInterface*        if_motor_;           // MotorObject
   fawkes::Laser360Interface*     if_laser_;           // LaserScannerObject
-  std::list<fawkes::Velocity3DInterface*>  if_velocitys_; // List of objects and there velocity
+  fawkes::BlackBoardInterfaceListMaintainer *ifs_velocity_; // ListHandler of objects and there velocity
   fawkes::NavigatorInterface*    if_colli_target_;    // TargetObject
   fawkes::colli_data_t           colli_data_;         // Colli Data Object
 

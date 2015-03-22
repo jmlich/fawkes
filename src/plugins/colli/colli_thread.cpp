@@ -43,6 +43,7 @@
 #include <interfaces/NavigatorInterface.h>
 #include <utils/math/common.h>
 #include <tf/time_cache.h>
+#include <blackboard/interface_list_maintainer.h>
 
 #include <string>
 
@@ -196,6 +197,7 @@ ColliThread::finalize()
   delete motor_instruct_;
 
   // close all registered bb-interfaces
+  delete ifs_velocity_;
   blackboard->close( if_colli_target_ );
   blackboard->close( if_laser_ );
   blackboard->close( if_motor_ );
@@ -646,11 +648,12 @@ ColliThread::open_interfaces()
   if_motor_->read();
   if_laser_->read();
 
-  if_velocitys_ = blackboard->open_multiple_for_reading<fawkes::Velocity3DInterface>((cfg_iface_prefix_velocitys_ + "*").c_str());
-  for (Velocity3DInterface *pif : if_velocitys_) {
-    pif->read();
-    logger->log_info(name(), "%s: (%lf,\t%lf,\t%lf)", pif->id(), pif->linear_velocity(0), pif->linear_velocity(1), pif->linear_velocity(2));
-  }
+  ifs_velocity_ = new BlackBoardInterfaceListMaintainer(  name(),
+                                                          blackboard,
+                                                          logger,
+                                                          "Velocity3DInterface",
+                                                          (cfg_iface_prefix_velocitys_ + "*").c_str()
+                                                       );
 
   if_colli_target_ = blackboard->open_for_writing<NavigatorInterface>(cfg_iface_colli_.c_str());
   if_colli_target_->set_final( true );
@@ -664,7 +667,7 @@ ColliThread::initialize_modules()
 {
   colli_data_.final = true;
 
-  occ_grid_ = new LaserOccupancyGrid( if_laser_, logger, config, tf_listener);
+  occ_grid_ = new LaserOccupancyGrid( if_laser_, ifs_velocity_, logger, config, tf_listener);
 
   // set the cell width and heigth to 5 cm and the grid size to 7.5 m x 7.5 m.
   // this are 750/5 x 750/5 grid cells -> (750x750)/5 = 22500 grid cells
