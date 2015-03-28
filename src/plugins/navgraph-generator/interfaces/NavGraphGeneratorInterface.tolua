@@ -7,10 +7,17 @@ class NavGraphGeneratorInterface : public Interface
 {
 
   typedef enum {
+    UNCONNECTED,
     CLOSEST_NODE,
     CLOSEST_EDGE,
     CLOSEST_EDGE_OR_NODE
   } ConnectionMode;
+
+  typedef enum {
+    FILTER_EDGES_BY_MAP,
+    FILTER_ORPHAN_NODES,
+    FILTER_MULTI_GRAPH
+  } FilterType;
 
   class ClearMessage : public Message
   {
@@ -37,6 +44,48 @@ class NavGraphGeneratorInterface : public Interface
     float p2_y();
     void set_p2_y(const float new_p2_y);
     int maxlenof_p2_y() const;
+  };
+
+  class SetFilterMessage : public Message
+  {
+    SetFilterMessage(FilterType ini_filter, bool ini_enable);
+    SetFilterMessage();
+    ~SetFilterMessage();
+
+    FilterType filter();
+    void set_filter(const FilterType new_filter);
+    int maxlenof_filter() const;
+    bool is_enable();
+    void set_enable(const bool new_enable);
+    int maxlenof_enable() const;
+  };
+
+  class SetFilterParamFloatMessage : public Message
+  {
+    SetFilterParamFloatMessage(FilterType ini_filter, char * ini_param, float ini_value);
+    SetFilterParamFloatMessage();
+    ~SetFilterParamFloatMessage();
+
+    FilterType filter();
+    void set_filter(const FilterType new_filter);
+    int maxlenof_filter() const;
+    char * param();
+    void set_param(const char * new_param);
+    int maxlenof_param() const;
+    float value();
+    void set_value(const float new_value);
+    int maxlenof_value() const;
+  };
+
+  class AddMapObstaclesMessage : public Message
+  {
+    AddMapObstaclesMessage(float ini_max_line_point_distance);
+    AddMapObstaclesMessage();
+    ~AddMapObstaclesMessage();
+
+    float max_line_point_distance();
+    void set_max_line_point_distance(const float new_max_line_point_distance);
+    int maxlenof_max_line_point_distance() const;
   };
 
   class AddObstacleMessage : public Message
@@ -82,6 +131,29 @@ class NavGraphGeneratorInterface : public Interface
     float y();
     void set_y(const float new_y);
     int maxlenof_y() const;
+    ConnectionMode mode();
+    void set_mode(const ConnectionMode new_mode);
+    int maxlenof_mode() const;
+  };
+
+  class AddPointOfInterestWithOriMessage : public Message
+  {
+    AddPointOfInterestWithOriMessage(char * ini_id, float ini_x, float ini_y, float ini_ori, ConnectionMode ini_mode);
+    AddPointOfInterestWithOriMessage();
+    ~AddPointOfInterestWithOriMessage();
+
+    char * id();
+    void set_id(const char * new_id);
+    int maxlenof_id() const;
+    float x();
+    void set_x(const float new_x);
+    int maxlenof_x() const;
+    float y();
+    void set_y(const float new_y);
+    int maxlenof_y() const;
+    float ori();
+    void set_ori(const float new_ori);
+    int maxlenof_ori() const;
     ConnectionMode mode();
     void set_mode(const ConnectionMode new_mode);
     int maxlenof_mode() const;

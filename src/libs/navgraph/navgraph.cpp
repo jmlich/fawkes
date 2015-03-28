@@ -591,7 +591,7 @@ NavGraph::add_edge(const NavGraphEdge &edge)
 void
 NavGraph::remove_node(const NavGraphNode &node)
 {
-  std::remove(nodes_.begin(), nodes_.end(), node);
+  nodes_.erase(std::remove(nodes_.begin(), nodes_.end(), node));
   edges_.erase(
     std::remove_if(edges_.begin(), edges_.end(),
 		   [&node](const NavGraphEdge &edge)->bool {
@@ -1182,15 +1182,13 @@ NavGraph::calc_reachability(bool allow_multi_graph)
   for (i = nodes_.begin(); i != nodes_.end(); ++i) {
     i->set_reachable_nodes(reachable_nodes(i->name()));
   }
-  if (! allow_multi_graph)  assert_connected();
-  reachability_calced_ = true;
 
   std::vector<NavGraphEdge>::iterator e;
   for (e = edges_.begin(); e != edges_.end(); ++e) {
     e->set_nodes(node(e->from()), node(e->to()));
   }
 
-  assert_connected();
+  if (! allow_multi_graph)  assert_connected();
   reachability_calced_ = true;
 }
 

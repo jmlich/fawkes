@@ -21,10 +21,6 @@
 #ifndef __PLUGINS_NAVGRAPH_GENERATOR_NAVGRAPH_GENERATOR_THREAD_H_
 #define __PLUGINS_NAVGRAPH_GENERATOR_NAVGRAPH_GENERATOR_THREAD_H_
 
-#ifdef HAVE_VISUALIZATION
-#  include "visualization_thread.h"
-#endif
-
 #include <core/threading/thread.h>
 #include <aspect/configurable.h>
 #include <aspect/logging.h>
@@ -33,8 +29,13 @@
 #include <navgraph/navgraph.h>
 #include <blackboard/interface_listener.h>
 #include <utils/math/types.h>
+#include <plugins/amcl/map/map.h>
 
 #include <interfaces/NavGraphGeneratorInterface.h>
+
+#ifdef HAVE_VISUALIZATION
+class NavGraphGeneratorVisualizationThread;
+#endif
 
 class NavGraphGeneratorThread
 : public fawkes::Thread,
@@ -44,8 +45,12 @@ class NavGraphGeneratorThread
   public fawkes::BlackBoardAspect,
   public fawkes::BlackBoardInterfaceListener
 {
+ friend class NavGraphGeneratorVisualizationThread;
  public:
   NavGraphGeneratorThread();
+#ifdef HAVE_VISUALIZATION
+  NavGraphGeneratorThread(NavGraphGeneratorVisualizationThread *vt);
+#endif
   virtual ~NavGraphGeneratorThread();
 
   virtual void init();
@@ -56,12 +61,6 @@ class NavGraphGeneratorThread
  protected: virtual void run() { Thread::run();}
 
  private:
-  virtual bool bb_interface_message_received(fawkes::Interface *interface,
-                                             fawkes::Message *message) throw();
-
- private:
-  fawkes::NavGraphGeneratorInterface *navgen_if_;
-
   typedef struct {
     fawkes::cart_coord_2d_t                            position;
     fawkes::NavGraphGeneratorInterface::ConnectionMode conn_mode;
@@ -70,15 +69,50 @@ class NavGraphGeneratorThread
 
   typedef std::map<std::string, PointOfInterest>         PoiMap;
   typedef std::map<std::string, fawkes::cart_coord_2d_t> ObstacleMap;
+
+  virtual bool bb_interface_message_received(fawkes::Interface *interface,
+                                             fawkes::Message *message) throw();
+
+  ObstacleMap map_obstacles(float line_max_dist);
+  map_t * load_map(std::vector<std::pair<int, int>> &free_space_indices);
+
+  void filter_edges_from_map(float max_dist);
+  void filter_nodes_orphans();
+  void filter_multi_graph();
+
+#ifdef HAVE_VISUALIZATION
+  void publish_visualization();
+#endif
+
+ private:
+  std::string  cfg_global_frame_;
+  unsigned int cfg_map_line_segm_max_iterations_;
+  float        cfg_map_line_min_length_;
+  unsigned int cfg_map_line_segm_min_inliers_;
+  float        cfg_map_line_cluster_tolerance_;
+  float        cfg_map_line_cluster_quota_;
+  bool         cfg_visualization_;
+
+  fawkes::NavGraphGeneratorInterface *navgen_if_;
+
   PoiMap      pois_;
   ObstacleMap obstacles_;
+  ObstacleMap map_obstacles_;
 
-  bool                                                 copy_default_properties_;
-  std::map<std::string, std::string>                   default_properties_;
+  bool                                 copy_default_properties_;
+  std::map<std::string, std::string>   default_properties_;
+
+  std::map<std::string, bool>                         filter_;
+  std::map<std::string, std::map<std::string, float>> filter_params_float_;
+  std::map<std::string, std::map<std::string, float>> filter_params_float_defaults_;
 
   bool                    bbox_set_;
   fawkes::cart_coord_2d_t bbox_p1_;
   fawkes::cart_coord_2d_t bbox_p2_;
+
+#ifdef HAVE_VISUALIZATION
+  NavGraphGeneratorVisualizationThread *vt_;
+#endif
 };
 
 #endif

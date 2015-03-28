@@ -320,6 +320,10 @@ load_yaml_navgraph(std::string filename)
 }
 
 
+/** Save navgraph to YAML file.
+ * @param filename name of file to save to
+ * @param graph graph to save to
+ */
 void
 save_yaml_navgraph(std::string filename, NavGraph *graph)
 {
