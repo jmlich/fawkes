@@ -371,6 +371,10 @@ AStarSpeed::get_solution_sequence( AStarState * node, vector<point_t> &solution 
 {
   AStarState * state = node;
   while ( state != &robo_pos_past_ ) {
+    if ( state == 0 ) {
+      logger_->log_warn("AStarSpeed", "Can't get_solution_sequence (state == 0)");
+      break;
+    }
     solution.insert( solution.begin(), point_t( state->x_, state->y_ ) );
     state = state->father_;
   }

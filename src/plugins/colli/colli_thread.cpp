@@ -667,7 +667,7 @@ ColliThread::initialize_modules()
 {
   colli_data_.final = true;
 
-  occ_grid_ = new LaserOccupancyGrid( if_laser_, ifs_velocity_, logger, config, tf_listener);
+  occ_grid_ = new LaserOccupancyGrid( if_laser_, logger, config, tf_listener);
 
   // set the cell width and heigth to 5 cm and the grid size to 7.5 m x 7.5 m.
   // this are 750/5 x 750/5 grid cells -> (750x750)/5 = 22500 grid cells
@@ -1000,7 +1000,8 @@ ColliThread::update_modules()
 
   // update the occgrid...
   distance_to_next_target_ = 1000.f;
-  distance_to_next_target_ = occ_grid_->update_occ_grid( laserpos_x, laserpos_y, robo_inc, vx, vy );
+  occ_grid_->update_occ_grid( laserpos_x, laserpos_y, robo_inc );
+  distance_to_next_target_ = occ_grid_->obstacle_in_path_distance(vx, vy);
 
   // update the positions
   laser_grid_pos_.x = laserpos_x;

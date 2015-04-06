@@ -20,6 +20,12 @@
  *  Read the full text in the LICENSE.GPL file in the doc directory.
  */
 
+#include <logging/logger.h>
+#include <config/config.h>
+
+#include "../rob/roboshape_colli.h"
+#include "../../search/obstacle_map.h"
+
 #include "occupancygrid.h"
 
 namespace fawkes
@@ -42,8 +48,36 @@ namespace fawkes
  * @param cell_width the cell width in cm
  * @param cell_height the cell height in cm
  */
-OccupancyGrid::OccupancyGrid(int width, int height, int cell_width, int cell_height)
+OccupancyGrid::OccupancyGrid(Logger* logger, Configuration* config, int width, int height, int cell_width, int cell_height)
 {
+  std::string cfg_prefix = "/plugins/colli/";
+  cfg_write_spam_debug_  = config->get_bool((cfg_prefix + "write_spam_debug").c_str());
+
+  cfg_obstacle_inc_          = config->get_bool((cfg_prefix + "obstacle_increasement").c_str());
+  cfg_force_elipse_obstacle_ = config->get_bool((cfg_prefix + "laser_occupancy_grid/force_ellipse_obstacle").c_str());
+
+  cell_costs_.occ  = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/occupied").c_str());
+  cell_costs_.near = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/near").c_str());
+  cell_costs_.mid  = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/mid").c_str());
+  cell_costs_.far  = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/far").c_str());
+  cell_costs_.free = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/free").c_str());
+
+  robo_shape_ = new RoboShapeColli( (cfg_prefix + "roboshape/").c_str(), logger, config );
+
+  logger->log_debug("OccupancyGrid", "Generating obstacle map");
+  bool obstacle_shape = robo_shape_->is_angular_robot() && ! cfg_force_elipse_obstacle_;
+  obstacle_map = new ColliObstacleMap(cell_costs_, obstacle_shape);
+  logger->log_debug("OccupancyGrid", "Generating obstacle map done");
+
+  // calculate laser offset from robot center
+  offset_base_.x=0;
+  offset_base_.y=0;
+  offset_laser_.x = robo_shape_->get_complete_width_x()/2.f - robo_shape_->get_robot_length_for_deg(0);
+  offset_laser_.y = robo_shape_->get_complete_width_y()/2.f - robo_shape_->get_robot_length_for_deg(90);
+  logger->log_debug("LaserOccupancyGrid", "Laser (x,y) offset from robo-center is (%f, %f)",
+                    offset_laser_.x, offset_laser_.y);
+
+
   width_ = width;
   height_ = height;
   cell_width_ = cell_width;
@@ -55,6 +89,7 @@ OccupancyGrid::OccupancyGrid(int width, int height, int cell_width, int cell_hei
 /** Destructor */
 OccupancyGrid::~OccupancyGrid()
 {
+  delete robo_shape_;
   occupancy_probs_.clear();
 }
 
@@ -195,6 +230,79 @@ OccupancyGrid::init_grid()
   column.resize(height_, 0.f);
   occupancy_probs_.resize(width_, column);
   fill( 0.f );
+}
+
+/** Set the offset of base_link from laser.
+ * @param x offset in x-direction (in meters)
+ * @param y offset in y-direction (in meters)
+ */
+void
+OccupancyGrid::set_base_offset(float x, float y)
+{
+  offset_base_.x = (int)round( (offset_laser_.x + x)*100.f/cell_height_ ); // # in grid-cells
+  offset_base_.y = (int)round( (offset_laser_.y + y)*100.f/cell_width_  );
+}
+
+
+/** Get cell costs.
+ * @return struct that contains all the cost values for the occgrid cells
+ */
+colli_cell_cost_t
+OccupancyGrid::get_cell_costs() const
+{
+  return cell_costs_;
+}
+
+void
+OccupancyGrid::integrate_obstacle( int x, int y, int width, int height )
+{
+  std::vector< int > fast_obstacle = obstacle_map->get_obstacle( width, height, cfg_obstacle_inc_ );
+
+  int posX = 0;
+  int posY = 0;
+
+  // i = x offset, i+1 = y offset, i+2 is cost
+  for( unsigned int i = 0; i < fast_obstacle.size(); i+=3 ) {
+    /* On the laser-points, we draw obstacles based on base_link. The obstacle has the robot-shape,
+     * which means that we need to rotate the shape 180° around base_link and move that rotation-
+     * point onto the laser-point on the grid. That's the same as adding the center_to_base_offset
+     * to the calculated position of the obstacle-center ("x + fast_obstacle[i]" and "y" respectively).
+     */
+    posX = x + fast_obstacle[i]   + offset_base_.x;
+    posY = y + fast_obstacle[i+1] + offset_base_.y;
+
+    if( (posX > 0) && (posX < height_)
+     && (posY > 0) && (posY < width_)
+     && (occupancy_probs_[posX][posY] < fast_obstacle[i+2]) )
+      {
+      occupancy_probs_[posX][posY] = fast_obstacle[i+2];
+    }
+  }
+}
+
+/** Put the laser readings in the occupancy grid
+ *  Also, every reading gets a radius according to the relative direction
+ *  of this reading to the robot.
+ * @param midX is the current x position of the robot in the grid.
+ * @param midY is the current y position of the robot in the grid.
+ * @param inc is the current constant to increase the obstacles.
+ * @param vx Translation x velocity of the motor
+ * @param vy Translation y velocity of the motor
+ * @return distance to next obstacle in pathdirection
+ */
+void
+OccupancyGrid::update_occ_grid( int midX, int midY, float inc)
+{
+  for ( int y = 0; y < width_; ++y )
+    for ( int x = 0; x < height_; ++x )
+      occupancy_probs_[x][y] = cell_costs_.free;
+
+  search_start_.x = midX;
+  search_start_.y = midY;
+
+  obstacle_increase_ = inc;
+
+  update_occ_grid_inner();
 }
 
 } // namespace fawkes

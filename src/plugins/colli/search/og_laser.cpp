@@ -22,7 +22,6 @@
  */
 
 #include "og_laser.h"
-#include "obstacle_map.h"
 
 #include "../utils/rob/roboshape_colli.h"
 
@@ -34,7 +33,6 @@
 #include <config/config.h>
 
 #include <interfaces/Laser360Interface.h>
-#include <blackboard/interface_list_maintainer.h>
 
 #include <cmath>
 
@@ -59,14 +57,13 @@ namespace fawkes
  * @param cell_width The width of a cell (in cm)
  * @param cell_height The height of a cell (in cm)
  */
-LaserOccupancyGrid::LaserOccupancyGrid( Laser360Interface * laser, BlackBoardInterfaceListMaintainer *ifs_velocity,
+LaserOccupancyGrid::LaserOccupancyGrid( Laser360Interface * laser,
                                         Logger* logger, Configuration* config, tf::Transformer* listener,
                                         int width, int height, int cell_width, int cell_height)
- : OccupancyGrid( width, height, cell_width, cell_height ),
+ : OccupancyGrid( logger, config, width, height, cell_width, cell_height ),
    tf_listener_(listener ),
    logger_( logger ),
-   if_laser_( laser ),
-   ifs_velocity_( ifs_velocity)
+   if_laser_( laser )
 {
   logger->log_debug("LaserOccupancyGrid", "(Constructor): Entering");
 
@@ -77,7 +74,6 @@ LaserOccupancyGrid::LaserOccupancyGrid( Laser360Interface * laser, BlackBoardInt
   max_history_length_    = config->get_float((cfg_prefix + "laser_occupancy_grid/history/max_length").c_str());
   min_history_length_    = config->get_float((cfg_prefix + "laser_occupancy_grid/history/min_length").c_str());
   min_laser_length_      = config->get_float((cfg_prefix + "laser/min_reading_length").c_str());
-  cfg_write_spam_debug_  = config->get_bool((cfg_prefix + "write_spam_debug").c_str());
 
   cfg_emergency_stop_beams_used_ = config->get_float((cfg_prefix + "emergency_stopping/beams_used").c_str());
 
@@ -104,42 +100,18 @@ LaserOccupancyGrid::LaserOccupancyGrid( Laser360Interface * laser, BlackBoardInt
   reference_frame_ = config->get_string((cfg_prefix + "frame/odometry").c_str());
   laser_frame_     = config->get_string((cfg_prefix + "frame/laser").c_str());       //TODO change to base_link => search in base_link instead base_laser
 
-  cfg_obstacle_inc_          = config->get_bool((cfg_prefix + "obstacle_increasement").c_str());
-  cfg_force_elipse_obstacle_ = config->get_bool((cfg_prefix + "laser_occupancy_grid/force_ellipse_obstacle").c_str());
-
   if_buffer_size_ = config->get_int((cfg_prefix + "laser_occupancy_grid/buffer_size").c_str());
   if_buffer_size_ = std::max(if_buffer_size_, 1); //needs to be >= 1, because the data is always wrote into the buffer (instead of read())
-
-  cell_costs_.occ  = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/occupied").c_str());
-  cell_costs_.near = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/near").c_str());
-  cell_costs_.mid  = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/mid").c_str());
-  cell_costs_.far  = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/far").c_str());
-  cell_costs_.free = config->get_int((cfg_prefix + "laser_occupancy_grid/cell_cost/free").c_str());
 
   if_buffer_filled_.resize(if_buffer_size_);
   std::fill(if_buffer_filled_.begin(), if_buffer_filled_.end(), false);
 
   if_laser_->resize_buffers( if_buffer_size_ );
 
-  robo_shape_ = new RoboShapeColli( (cfg_prefix + "roboshape/").c_str(), logger, config );
   old_readings_.clear();
   init_grid();
 
-  logger->log_debug("LaserOccupancyGrid", "Generating obstacle map");
-  bool obstacle_shape = robo_shape_->is_angular_robot() && ! cfg_force_elipse_obstacle_;
-  obstacle_map = new ColliObstacleMap(cell_costs_, obstacle_shape);
-  logger->log_debug("LaserOccupancyGrid", "Generating obstacle map done");
-
   laser_pos_ = point_t(0,0);
-
-  // calculate laser offset from robot center
-  offset_base_.x=0;
-  offset_base_.y=0;
-  offset_laser_.x = robo_shape_->get_complete_width_x()/2.f - robo_shape_->get_robot_length_for_deg(0);
-  offset_laser_.y = robo_shape_->get_complete_width_y()/2.f - robo_shape_->get_robot_length_for_deg(90);
-  logger->log_debug("LaserOccupancyGrid", "Laser (x,y) offset from robo-center is (%f, %f)",
-                    offset_laser_.x, offset_laser_.y);
-
 
   logger->log_debug("LaserOccupancyGrid", "(Constructor): Exiting");
 }
@@ -147,7 +119,6 @@ LaserOccupancyGrid::LaserOccupancyGrid( Laser360Interface * laser, BlackBoardInt
 /** Descturctor. */
 LaserOccupancyGrid::~LaserOccupancyGrid()
 {
-  delete robo_shape_;
 }
 
 /** Reset all old readings and forget about the world state! */
@@ -256,22 +227,6 @@ LaserOccupancyGrid::update_laser()
   }
 }
 
-void
-LaserOccupancyGrid::update_dynamic_obstacles()
-{
-  // get list of interfaces
-  std::list<Velocity3DInterface *> ifs_vel = ifs_velocity_->lock_and_get_list<fawkes::Velocity3DInterface>();
-  // copy data of interfaces (the interfaces itself are just to be used untill unlocked)
-  velocitys_.clear();
-  for(  std::list<Velocity3DInterface *>::iterator i = ifs_vel.begin();
-        i != ifs_vel.end();
-        ++i ) {
-    velocitys_.push_back( Velocity3DInterface::Velocity3DInterface_data_t(*i) );
-  }
-  // unlock list of interfaces
-  ifs_velocity_->unlock_list();
-}
-
 /**
  * compare the given point with all old points to delete old-wrong-obstacles
  * @param pos_robot           the robot pose where the point to compare with where taken
@@ -372,19 +327,11 @@ LaserOccupancyGrid::obstacle_in_path_distance( float vx, float vy )
  * @param vy Translation y velocity of the motor
  * @return distance to next obstacle in pathdirection
  */
-float
-LaserOccupancyGrid::update_occ_grid( int midX, int midY, float inc, float vx, float vy )
+void
+LaserOccupancyGrid::update_occ_grid_inner( )
 {
-  float vel = std::sqrt(vx*vx + vy*vy);
-
-  float next_obstacle = obstacle_in_path_distance( vx, vy );
-
-  laser_pos_.x = midX;
-  laser_pos_.y = midY;
-
-  for ( int y = 0; y < width_; ++y )
-    for ( int x = 0; x < height_; ++x )
-      occupancy_probs_[x][y] = cell_costs_.free;
+  laser_pos_.x = search_start_.x;
+  laser_pos_.y = search_start_.y;
 
   update_laser();
 
@@ -396,13 +343,11 @@ LaserOccupancyGrid::update_occ_grid( int midX, int midY, float inc, float vx, fl
   } catch(Exception &e) {
     logger_->log_error("LaserOccupancyGrid", "Unable to transform %s to %s. Can't put obstacles into the grid",
         reference_frame_.c_str(), laser_frame_.c_str());
-    return 0.;
+    return;
   }
 
-  integrate_old_readings( midX, midY, inc, vel, transform );
-  integrate_new_readings( midX, midY, inc, vel, transform );
-
-  return next_obstacle;
+  integrate_old_readings( search_start_.x, search_start_.y, obstacle_increase_, transform );
+  integrate_new_readings( search_start_.x, search_start_.y, obstacle_increase_, transform );
 }
 
 /**
@@ -442,29 +387,8 @@ LaserOccupancyGrid::get_laser_position()
   return laser_pos_;
 }
 
-/** Set the offset of base_link from laser.
- * @param x offset in x-direction (in meters)
- * @param y offset in y-direction (in meters)
- */
 void
-LaserOccupancyGrid::set_base_offset(float x, float y)
-{
-  offset_base_.x = (int)round( (offset_laser_.x + x)*100.f/cell_height_ ); // # in grid-cells
-  offset_base_.y = (int)round( (offset_laser_.y + y)*100.f/cell_width_  );
-}
-
-
-/** Get cell costs.
- * @return struct that contains all the cost values for the occgrid cells
- */
-colli_cell_cost_t
-LaserOccupancyGrid::get_cell_costs() const
-{
-  return cell_costs_;
-}
-
-void
-LaserOccupancyGrid::integrate_old_readings( int midX, int midY, float inc, float vel,
+LaserOccupancyGrid::integrate_old_readings( int midX, int midY, float inc,
                                            tf::StampedTransform& transform )
 {
   std::vector< LaserOccupancyGrid::LaserPoint > old_readings;
@@ -537,7 +461,7 @@ LaserOccupancyGrid::integrate_old_readings( int midX, int midY, float inc, float
 
 
 void
-LaserOccupancyGrid::integrate_new_readings( int midX, int midY, float inc, float vel,
+LaserOccupancyGrid::integrate_new_readings( int midX, int midY, float inc,
                                            tf::StampedTransform& transform )
 {
   std::vector< LaserOccupancyGrid::LaserPoint >* pointsTransformed = transform_laser_points(new_readings_, transform);
@@ -577,33 +501,6 @@ LaserOccupancyGrid::integrate_new_readings( int midX, int midY, float inc, float
     }
   }
   delete pointsTransformed;
-}
-
-void
-LaserOccupancyGrid::integrate_obstacle( int x, int y, int width, int height )
-{
-  std::vector< int > fast_obstacle = obstacle_map->get_obstacle( width, height, cfg_obstacle_inc_ );
-
-  int posX = 0;
-  int posY = 0;
-
-  // i = x offset, i+1 = y offset, i+2 is cost
-  for( unsigned int i = 0; i < fast_obstacle.size(); i+=3 ) {
-    /* On the laser-points, we draw obstacles based on base_link. The obstacle has the robot-shape,
-     * which means that we need to rotate the shape 180° around base_link and move that rotation-
-     * point onto the laser-point on the grid. That's the same as adding the center_to_base_offset
-     * to the calculated position of the obstacle-center ("x + fast_obstacle[i]" and "y" respectively).
-     */
-    posX = x + fast_obstacle[i]   + offset_base_.x;
-    posY = y + fast_obstacle[i+1] + offset_base_.y;
-
-    if( (posX > 0) && (posX < height_)
-     && (posY > 0) && (posY < width_)
-     && (occupancy_probs_[posX][posY] < fast_obstacle[i+2]) )
-      {
-      occupancy_probs_[posX][posY] = fast_obstacle[i+2];
-    }
-  }
 }
 
 } // namespace fawkes
