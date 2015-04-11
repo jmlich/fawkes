@@ -71,6 +71,9 @@ class NavGraphEdge {
   { return to_node_; }
 
   fawkes::cart_coord_2d_t closest_point_on_edge(float x, float y) const;
+  bool intersects(float x1, float y1, float x2, float y2) const;
+  bool intersection(float x1, float y1, float x2, float y2,
+		    fawkes::cart_coord_2d_t &ip) const;
 
   void set_from(const std::string &from);
   void set_to(const std::string &to);
@@ -89,7 +92,9 @@ class NavGraphEdge {
   bool has_property(const std::string &property) const
   { return properties_.find(property) != properties_.end(); }
 
+  void set_properties(const std::map<std::string, std::string> &properties);
   void set_property(const std::string &property, const std::string &value);
+  void set_property(const std::string &property, const char *value);
   void set_property(const std::string &property, float value);
   void set_property(const std::string &property, int value);
   void set_property(const std::string &property, bool value);

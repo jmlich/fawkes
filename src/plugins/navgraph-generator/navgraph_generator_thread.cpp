@@ -147,6 +147,10 @@ NavGraphGeneratorThread::loop()
   // Acquire lock on navgraph, no more searches/modifications until we are done
   MutexLocker lock(navgraph.objmutex_ptr());
 
+  // disable notifications as to not trigger one for all the many
+  // operations we are going to perform
+  navgraph->set_notifications_enabled(false);
+
   // remember default properties
   std::map<std::string, std::string> default_props = navgraph->default_properties();
 
@@ -179,12 +183,18 @@ NavGraphGeneratorThread::loop()
   }
 
   // add POIs
-  for (auto p : pois_) {
+  for (const auto &p : pois_) {
     // add poi
     NavGraphNode node(p.first,
 		      p.second.position.x, p.second.position.y,
 		      p.second.properties);
     switch (p.second.conn_mode) {
+    case NavGraphGeneratorInterface::NOT_CONNECTED:
+      logger->log_debug(name(), "  POI without initial connection %s at (%f,%f)",
+			p.first.c_str(), p.second.position.x, p.second.position.y);
+      navgraph->add_node(node);
+      break;
+
     case NavGraphGeneratorInterface::UNCONNECTED:
       logger->log_debug(name(), "  Unconnected POI %s at (%f,%f)",
 			p.first.c_str(), p.second.position.x, p.second.position.y);
@@ -216,6 +226,33 @@ NavGraphGeneratorThread::loop()
     }
   }
 
+
+  // add edges
+  for (const auto &e : edges_) {
+    switch (e.edge_mode) {
+    case NavGraphGeneratorInterface::NO_INTERSECTION:
+      logger->log_debug(name(), "  Edge %s-%s%s (no intersection)",
+			e.p1.c_str(), e.directed ? ">" : "-", e.p2.c_str());
+      navgraph->add_edge(NavGraphEdge(e.p1, e.p2, e.directed),
+			 NavGraph::EDGE_NO_INTERSECTION);
+      break;
+
+    case NavGraphGeneratorInterface::SPLIT_INTERSECTION:
+      logger->log_debug(name(), "  Edge %s-%s%s (split intersection)",
+			e.p1.c_str(), e.directed ? ">" : "-", e.p2.c_str());
+      navgraph->add_edge(NavGraphEdge(e.p1, e.p2, e.directed),
+			 NavGraph::EDGE_SPLIT_INTERSECTION);
+      break;
+
+    case NavGraphGeneratorInterface::FORCE:
+      logger->log_debug(name(), "  Edge %s-%s%s (force)",
+			e.p1.c_str(), e.directed ? ">" : "-", e.p2.c_str());
+      navgraph->add_edge(NavGraphEdge(e.p1, e.p2, e.directed),
+			 NavGraph::EDGE_FORCE);
+      break;
+    }
+  }
+
   // Finalize graph setup
   try {
     logger->log_debug(name(), "  Calculate reachability relations");
@@ -225,8 +262,14 @@ NavGraphGeneratorThread::loop()
     logger->log_error(name(), e);
   }
 
+  // re-enable notifications
+  navgraph->set_notifications_enabled(true);
+
   logger->log_debug(name(), "  Graph computed, notifying listeners");
   navgraph->notify_of_change();
+
+  navgen_if_->set_final(true);
+  navgen_if_->write();
 
 #ifdef HAVE_VISUALIZATION
   if (cfg_visualization_)  publish_visualization();
@@ -308,6 +351,16 @@ NavGraphGeneratorThread::bb_interface_message_received(Interface *interface,
     poi.conn_mode = msg->mode();
     pois_[msg->id()] = poi;
 
+  } else if (message->is_of_type<NavGraphGeneratorInterface::AddEdgeMessage>()) {
+    NavGraphGeneratorInterface::AddEdgeMessage *msg =
+      message->as_type<NavGraphGeneratorInterface::AddEdgeMessage>();
+    Edge edge;
+    edge.p1 = msg->p1();
+    edge.p2 = msg->p2();
+    edge.directed = msg->is_directed();
+    edge.edge_mode = msg->mode();
+    edges_.push_back(edge);
+
   } else if (message->is_of_type<NavGraphGeneratorInterface::AddPointOfInterestWithOriMessage>()) {
     NavGraphGeneratorInterface::AddPointOfInterestWithOriMessage *msg =
       message->as_type<NavGraphGeneratorInterface::AddPointOfInterestWithOriMessage>();
@@ -347,6 +400,9 @@ NavGraphGeneratorThread::bb_interface_message_received(Interface *interface,
     copy_default_properties_ = msg->is_enable_copy();
 
   } else if (message->is_of_type<NavGraphGeneratorInterface::ComputeMessage>()) {
+    navgen_if_->set_msgid(message->id());
+    navgen_if_->set_final(false);
+    navgen_if_->write();
     wakeup();
 
   } else {

@@ -63,6 +63,7 @@ NavGraphGeneratorInterface::NavGraphGeneratorInterface() : Interface()
   data      = (NavGraphGeneratorInterface_data_t *)data_ptr;
   data_ts   = (interface_data_ts_t *)data_ptr;
   memset(data_ptr, 0, data_size);
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -70,7 +71,11 @@ NavGraphGeneratorInterface::NavGraphGeneratorInterface() : Interface()
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
-  add_fieldinfo(IFT_UINT32, "flags", 1, &data->flags);
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
+  add_fieldinfo(IFT_UINT32, "msgid", 1, &data->msgid);
+  add_fieldinfo(IFT_BOOL, "final", 1, &data->final);
   add_messageinfo("ClearMessage");
   add_messageinfo("SetBoundingBoxMessage");
   add_messageinfo("SetFilterMessage");
@@ -81,11 +86,12 @@ NavGraphGeneratorInterface::NavGraphGeneratorInterface() : Interface()
   add_messageinfo("AddPointOfInterestMessage");
   add_messageinfo("AddPointOfInterestWithOriMessage");
   add_messageinfo("SetPointOfInterestPropertyMessage");
+  add_messageinfo("AddEdgeMessage");
   add_messageinfo("SetGraphDefaultPropertyMessage");
   add_messageinfo("SetCopyGraphDefaultPropertiesMessage");
   add_messageinfo("RemovePointOfInterestMessage");
   add_messageinfo("ComputeMessage");
-  unsigned char tmp_hash[] = {0x9, 0x7d, 0xae, 0xd5, 0xf4, 0x69, 0x6f, 00, 0x75, 0x5a, 0x53, 0xbb, 0x5e, 0xef, 0x49, 0x79};
+  unsigned char tmp_hash[] = {0x72, 0xc3, 0x67, 0x5b, 0xf2, 0xe6, 0xa2, 0x71, 0xd8, 0x9d, 0xdc, 0xb6, 0xbe, 0xe5, 0x7, 0xc8};
   set_hash(tmp_hash);
 }
 
@@ -102,6 +108,7 @@ const char *
 NavGraphGeneratorInterface::tostring_ConnectionMode(ConnectionMode value) const
 {
   switch (value) {
+  case NOT_CONNECTED: return "NOT_CONNECTED";
   case UNCONNECTED: return "UNCONNECTED";
   case CLOSEST_NODE: return "CLOSEST_NODE";
   case CLOSEST_EDGE: return "CLOSEST_EDGE";
@@ -123,37 +130,94 @@ NavGraphGeneratorInterface::tostring_FilterType(FilterType value) const
   default: return "UNKNOWN";
   }
 }
+/** Convert EdgeMode constant to string.
+ * @param value value to convert to string
+ * @return constant value as string.
+ */
+const char *
+NavGraphGeneratorInterface::tostring_EdgeMode(EdgeMode value) const
+{
+  switch (value) {
+  case NO_INTERSECTION: return "NO_INTERSECTION";
+  case SPLIT_INTERSECTION: return "SPLIT_INTERSECTION";
+  case FORCE: return "FORCE";
+  default: return "UNKNOWN";
+  }
+}
 /* Methods */
-/** Get flags value.
- * Bit-wise combination of
-    FLAG_* constants denoting navigator component features.
- * @return flags value
+/** Get msgid value.
+ * 
+      The ID of the message that is currently being processed or
+      was processed last.
+    
+ * @return msgid value
  */
 uint32_t
-NavGraphGeneratorInterface::flags() const
+NavGraphGeneratorInterface::msgid() const
 {
-  return data->flags;
+  return data->msgid;
 }
 
-/** Get maximum length of flags value.
- * @return length of flags value, can be length of the array or number of 
+/** Get maximum length of msgid value.
+ * @return length of msgid value, can be length of the array or number of 
  * maximum number of characters for a string
  */
 size_t
-NavGraphGeneratorInterface::maxlenof_flags() const
+NavGraphGeneratorInterface::maxlenof_msgid() const
 {
   return 1;
 }
 
-/** Set flags value.
- * Bit-wise combination of
-    FLAG_* constants denoting navigator component features.
- * @param new_flags new flags value
+/** Set msgid value.
+ * 
+      The ID of the message that is currently being processed or
+      was processed last.
+    
+ * @param new_msgid new msgid value
  */
 void
-NavGraphGeneratorInterface::set_flags(const uint32_t new_flags)
+NavGraphGeneratorInterface::set_msgid(const uint32_t new_msgid)
 {
-  data->flags = new_flags;
+  data->msgid = new_msgid;
+  data_changed = true;
+}
+
+/** Get final value.
+ * 
+      True, if the last generation triggered by a ComputeMessage has
+      been completed, false if it is still running. Also check the
+      msgid field if this field applies to the correct message.
+    
+ * @return final value
+ */
+bool
+NavGraphGeneratorInterface::is_final() const
+{
+  return data->final;
+}
+
+/** Get maximum length of final value.
+ * @return length of final value, can be length of the array or number of 
+ * maximum number of characters for a string
+ */
+size_t
+NavGraphGeneratorInterface::maxlenof_final() const
+{
+  return 1;
+}
+
+/** Set final value.
+ * 
+      True, if the last generation triggered by a ComputeMessage has
+      been completed, false if it is still running. Also check the
+      msgid field if this field applies to the correct message.
+    
+ * @param new_final new final value
+ */
+void
+NavGraphGeneratorInterface::set_final(const bool new_final)
+{
+  data->final = new_final;
   data_changed = true;
 }
 
@@ -181,6 +245,8 @@ NavGraphGeneratorInterface::create_message(const char *type) const
     return new AddPointOfInterestWithOriMessage();
   } else if ( strncmp("SetPointOfInterestPropertyMessage", type, __INTERFACE_MESSAGE_TYPE_SIZE) == 0 ) {
     return new SetPointOfInterestPropertyMessage();
+  } else if ( strncmp("AddEdgeMessage", type, __INTERFACE_MESSAGE_TYPE_SIZE) == 0 ) {
+    return new AddEdgeMessage();
   } else if ( strncmp("SetGraphDefaultPropertyMessage", type, __INTERFACE_MESSAGE_TYPE_SIZE) == 0 ) {
     return new SetGraphDefaultPropertyMessage();
   } else if ( strncmp("SetCopyGraphDefaultPropertiesMessage", type, __INTERFACE_MESSAGE_TYPE_SIZE) == 0 ) {
@@ -219,6 +285,9 @@ NavGraphGeneratorInterface::enum_tostring(const char *enumtype, int val) const
   if (strcmp(enumtype, "FilterType") == 0) {
     return tostring_FilterType((FilterType)val);
   }
+  if (strcmp(enumtype, "EdgeMode") == 0) {
+    return tostring_EdgeMode((EdgeMode)val);
+  }
   throw UnknownTypeException("Unknown enum type %s", enumtype);
 }
 
@@ -238,6 +307,7 @@ NavGraphGeneratorInterface::ClearMessage::ClearMessage() : Message("ClearMessage
   memset(data_ptr, 0, data_size);
   data      = (ClearMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -245,6 +315,9 @@ NavGraphGeneratorInterface::ClearMessage::ClearMessage() : Message("ClearMessage
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
 }
 
 /** Destructor */
@@ -300,6 +373,7 @@ NavGraphGeneratorInterface::SetBoundingBoxMessage::SetBoundingBoxMessage(const f
   data->p1_y = ini_p1_y;
   data->p2_x = ini_p2_x;
   data->p2_y = ini_p2_y;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -307,6 +381,9 @@ NavGraphGeneratorInterface::SetBoundingBoxMessage::SetBoundingBoxMessage(const f
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_FLOAT, "p1_x", 1, &data->p1_x);
   add_fieldinfo(IFT_FLOAT, "p1_y", 1, &data->p1_y);
   add_fieldinfo(IFT_FLOAT, "p2_x", 1, &data->p2_x);
@@ -320,6 +397,7 @@ NavGraphGeneratorInterface::SetBoundingBoxMessage::SetBoundingBoxMessage() : Mes
   memset(data_ptr, 0, data_size);
   data      = (SetBoundingBoxMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -327,6 +405,9 @@ NavGraphGeneratorInterface::SetBoundingBoxMessage::SetBoundingBoxMessage() : Mes
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_FLOAT, "p1_x", 1, &data->p1_x);
   add_fieldinfo(IFT_FLOAT, "p1_y", 1, &data->p1_y);
   add_fieldinfo(IFT_FLOAT, "p2_x", 1, &data->p2_x);
@@ -502,6 +583,7 @@ NavGraphGeneratorInterface::SetFilterMessage::SetFilterMessage(const FilterType 
   data_ts   = (message_data_ts_t *)data_ptr;
   data->filter = ini_filter;
   data->enable = ini_enable;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -509,6 +591,9 @@ NavGraphGeneratorInterface::SetFilterMessage::SetFilterMessage(const FilterType 
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_ENUM, "filter", 1, &data->filter, "FilterType", &enum_map_FilterType);
   add_fieldinfo(IFT_BOOL, "enable", 1, &data->enable);
 }
@@ -520,6 +605,7 @@ NavGraphGeneratorInterface::SetFilterMessage::SetFilterMessage() : Message("SetF
   memset(data_ptr, 0, data_size);
   data      = (SetFilterMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -527,6 +613,9 @@ NavGraphGeneratorInterface::SetFilterMessage::SetFilterMessage() : Message("SetF
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_ENUM, "filter", 1, &data->filter, "FilterType", &enum_map_FilterType);
   add_fieldinfo(IFT_BOOL, "enable", 1, &data->enable);
 }
@@ -646,6 +735,7 @@ NavGraphGeneratorInterface::SetFilterParamFloatMessage::SetFilterParamFloatMessa
   data->filter = ini_filter;
   strncpy(data->param, ini_param, 32);
   data->value = ini_value;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -653,6 +743,9 @@ NavGraphGeneratorInterface::SetFilterParamFloatMessage::SetFilterParamFloatMessa
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_ENUM, "filter", 1, &data->filter, "FilterType", &enum_map_FilterType);
   add_fieldinfo(IFT_STRING, "param", 32, data->param);
   add_fieldinfo(IFT_FLOAT, "value", 1, &data->value);
@@ -665,6 +758,7 @@ NavGraphGeneratorInterface::SetFilterParamFloatMessage::SetFilterParamFloatMessa
   memset(data_ptr, 0, data_size);
   data      = (SetFilterParamFloatMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -672,6 +766,9 @@ NavGraphGeneratorInterface::SetFilterParamFloatMessage::SetFilterParamFloatMessa
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_ENUM, "filter", 1, &data->filter, "FilterType", &enum_map_FilterType);
   add_fieldinfo(IFT_STRING, "param", 32, data->param);
   add_fieldinfo(IFT_FLOAT, "value", 1, &data->value);
@@ -820,6 +917,7 @@ NavGraphGeneratorInterface::AddMapObstaclesMessage::AddMapObstaclesMessage(const
   data      = (AddMapObstaclesMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
   data->max_line_point_distance = ini_max_line_point_distance;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -827,6 +925,9 @@ NavGraphGeneratorInterface::AddMapObstaclesMessage::AddMapObstaclesMessage(const
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_FLOAT, "max_line_point_distance", 1, &data->max_line_point_distance);
 }
 /** Constructor */
@@ -837,6 +938,7 @@ NavGraphGeneratorInterface::AddMapObstaclesMessage::AddMapObstaclesMessage() : M
   memset(data_ptr, 0, data_size);
   data      = (AddMapObstaclesMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -844,6 +946,9 @@ NavGraphGeneratorInterface::AddMapObstaclesMessage::AddMapObstaclesMessage() : M
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_FLOAT, "max_line_point_distance", 1, &data->max_line_point_distance);
 }
 
@@ -934,6 +1039,7 @@ NavGraphGeneratorInterface::AddObstacleMessage::AddObstacleMessage(const char * 
   strncpy(data->id, ini_id, 64);
   data->x = ini_x;
   data->y = ini_y;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -941,6 +1047,9 @@ NavGraphGeneratorInterface::AddObstacleMessage::AddObstacleMessage(const char * 
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_FLOAT, "x", 1, &data->x);
   add_fieldinfo(IFT_FLOAT, "y", 1, &data->y);
@@ -953,6 +1062,7 @@ NavGraphGeneratorInterface::AddObstacleMessage::AddObstacleMessage() : Message("
   memset(data_ptr, 0, data_size);
   data      = (AddObstacleMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -960,6 +1070,9 @@ NavGraphGeneratorInterface::AddObstacleMessage::AddObstacleMessage() : Message("
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_FLOAT, "x", 1, &data->x);
   add_fieldinfo(IFT_FLOAT, "y", 1, &data->y);
@@ -1106,6 +1219,7 @@ NavGraphGeneratorInterface::RemoveObstacleMessage::RemoveObstacleMessage(const c
   data      = (RemoveObstacleMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
   strncpy(data->id, ini_id, 64);
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1113,6 +1227,9 @@ NavGraphGeneratorInterface::RemoveObstacleMessage::RemoveObstacleMessage(const c
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
 }
 /** Constructor */
@@ -1123,6 +1240,7 @@ NavGraphGeneratorInterface::RemoveObstacleMessage::RemoveObstacleMessage() : Mes
   memset(data_ptr, 0, data_size);
   data      = (RemoveObstacleMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1130,6 +1248,9 @@ NavGraphGeneratorInterface::RemoveObstacleMessage::RemoveObstacleMessage() : Mes
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
 }
 
@@ -1220,6 +1341,7 @@ NavGraphGeneratorInterface::AddPointOfInterestMessage::AddPointOfInterestMessage
   data->x = ini_x;
   data->y = ini_y;
   data->mode = ini_mode;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1227,6 +1349,9 @@ NavGraphGeneratorInterface::AddPointOfInterestMessage::AddPointOfInterestMessage
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_FLOAT, "x", 1, &data->x);
   add_fieldinfo(IFT_FLOAT, "y", 1, &data->y);
@@ -1240,6 +1365,7 @@ NavGraphGeneratorInterface::AddPointOfInterestMessage::AddPointOfInterestMessage
   memset(data_ptr, 0, data_size);
   data      = (AddPointOfInterestMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1247,6 +1373,9 @@ NavGraphGeneratorInterface::AddPointOfInterestMessage::AddPointOfInterestMessage
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_FLOAT, "x", 1, &data->x);
   add_fieldinfo(IFT_FLOAT, "y", 1, &data->y);
@@ -1436,6 +1565,7 @@ NavGraphGeneratorInterface::AddPointOfInterestWithOriMessage::AddPointOfInterest
   data->y = ini_y;
   data->ori = ini_ori;
   data->mode = ini_mode;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1443,6 +1573,9 @@ NavGraphGeneratorInterface::AddPointOfInterestWithOriMessage::AddPointOfInterest
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_FLOAT, "x", 1, &data->x);
   add_fieldinfo(IFT_FLOAT, "y", 1, &data->y);
@@ -1457,6 +1590,7 @@ NavGraphGeneratorInterface::AddPointOfInterestWithOriMessage::AddPointOfInterest
   memset(data_ptr, 0, data_size);
   data      = (AddPointOfInterestWithOriMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1464,6 +1598,9 @@ NavGraphGeneratorInterface::AddPointOfInterestWithOriMessage::AddPointOfInterest
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_FLOAT, "x", 1, &data->x);
   add_fieldinfo(IFT_FLOAT, "y", 1, &data->y);
@@ -1680,6 +1817,7 @@ NavGraphGeneratorInterface::SetPointOfInterestPropertyMessage::SetPointOfInteres
   strncpy(data->id, ini_id, 64);
   strncpy(data->property_name, ini_property_name, 64);
   strncpy(data->property_value, ini_property_value, 1024);
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1687,6 +1825,9 @@ NavGraphGeneratorInterface::SetPointOfInterestPropertyMessage::SetPointOfInteres
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_STRING, "property_name", 64, data->property_name);
   add_fieldinfo(IFT_STRING, "property_value", 1024, data->property_value);
@@ -1699,6 +1840,7 @@ NavGraphGeneratorInterface::SetPointOfInterestPropertyMessage::SetPointOfInteres
   memset(data_ptr, 0, data_size);
   data      = (SetPointOfInterestPropertyMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1706,6 +1848,9 @@ NavGraphGeneratorInterface::SetPointOfInterestPropertyMessage::SetPointOfInteres
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
   add_fieldinfo(IFT_STRING, "property_name", 64, data->property_name);
   add_fieldinfo(IFT_STRING, "property_value", 1024, data->property_value);
@@ -1836,6 +1981,226 @@ NavGraphGeneratorInterface::SetPointOfInterestPropertyMessage::clone() const
 {
   return new NavGraphGeneratorInterface::SetPointOfInterestPropertyMessage(this);
 }
+/** @class NavGraphGeneratorInterface::AddEdgeMessage <interfaces/NavGraphGeneratorInterface.h>
+ * AddEdgeMessage Fawkes BlackBoard Interface Message.
+ * 
+    
+ */
+
+
+/** Constructor with initial values.
+ * @param ini_p1 initial value for p1
+ * @param ini_p2 initial value for p2
+ * @param ini_directed initial value for directed
+ * @param ini_mode initial value for mode
+ */
+NavGraphGeneratorInterface::AddEdgeMessage::AddEdgeMessage(const char * ini_p1, const char * ini_p2, const bool ini_directed, const EdgeMode ini_mode) : Message("AddEdgeMessage")
+{
+  data_size = sizeof(AddEdgeMessage_data_t);
+  data_ptr  = malloc(data_size);
+  memset(data_ptr, 0, data_size);
+  data      = (AddEdgeMessage_data_t *)data_ptr;
+  data_ts   = (message_data_ts_t *)data_ptr;
+  strncpy(data->p1, ini_p1, 64);
+  strncpy(data->p2, ini_p2, 64);
+  data->directed = ini_directed;
+  data->mode = ini_mode;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
+  enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
+  enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
+  enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
+  enum_map_ConnectionMode[(int)CLOSEST_EDGE_OR_NODE] = "CLOSEST_EDGE_OR_NODE";
+  enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
+  enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
+  enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
+  add_fieldinfo(IFT_STRING, "p1", 64, data->p1);
+  add_fieldinfo(IFT_STRING, "p2", 64, data->p2);
+  add_fieldinfo(IFT_BOOL, "directed", 1, &data->directed);
+  add_fieldinfo(IFT_ENUM, "mode", 1, &data->mode, "EdgeMode", &enum_map_EdgeMode);
+}
+/** Constructor */
+NavGraphGeneratorInterface::AddEdgeMessage::AddEdgeMessage() : Message("AddEdgeMessage")
+{
+  data_size = sizeof(AddEdgeMessage_data_t);
+  data_ptr  = malloc(data_size);
+  memset(data_ptr, 0, data_size);
+  data      = (AddEdgeMessage_data_t *)data_ptr;
+  data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
+  enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
+  enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
+  enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
+  enum_map_ConnectionMode[(int)CLOSEST_EDGE_OR_NODE] = "CLOSEST_EDGE_OR_NODE";
+  enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
+  enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
+  enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
+  add_fieldinfo(IFT_STRING, "p1", 64, data->p1);
+  add_fieldinfo(IFT_STRING, "p2", 64, data->p2);
+  add_fieldinfo(IFT_BOOL, "directed", 1, &data->directed);
+  add_fieldinfo(IFT_ENUM, "mode", 1, &data->mode, "EdgeMode", &enum_map_EdgeMode);
+}
+
+/** Destructor */
+NavGraphGeneratorInterface::AddEdgeMessage::~AddEdgeMessage()
+{
+  free(data_ptr);
+}
+
+/** Copy constructor.
+ * @param m message to copy from
+ */
+NavGraphGeneratorInterface::AddEdgeMessage::AddEdgeMessage(const AddEdgeMessage *m) : Message("AddEdgeMessage")
+{
+  data_size = m->data_size;
+  data_ptr  = malloc(data_size);
+  memcpy(data_ptr, m->data_ptr, data_size);
+  data      = (AddEdgeMessage_data_t *)data_ptr;
+  data_ts   = (message_data_ts_t *)data_ptr;
+}
+
+/* Methods */
+/** Get p1 value.
+ * ID of first node.
+ * @return p1 value
+ */
+char *
+NavGraphGeneratorInterface::AddEdgeMessage::p1() const
+{
+  return data->p1;
+}
+
+/** Get maximum length of p1 value.
+ * @return length of p1 value, can be length of the array or number of 
+ * maximum number of characters for a string
+ */
+size_t
+NavGraphGeneratorInterface::AddEdgeMessage::maxlenof_p1() const
+{
+  return 64;
+}
+
+/** Set p1 value.
+ * ID of first node.
+ * @param new_p1 new p1 value
+ */
+void
+NavGraphGeneratorInterface::AddEdgeMessage::set_p1(const char * new_p1)
+{
+  strncpy(data->p1, new_p1, sizeof(data->p1));
+}
+
+/** Get p2 value.
+ * ID of second node.
+ * @return p2 value
+ */
+char *
+NavGraphGeneratorInterface::AddEdgeMessage::p2() const
+{
+  return data->p2;
+}
+
+/** Get maximum length of p2 value.
+ * @return length of p2 value, can be length of the array or number of 
+ * maximum number of characters for a string
+ */
+size_t
+NavGraphGeneratorInterface::AddEdgeMessage::maxlenof_p2() const
+{
+  return 64;
+}
+
+/** Set p2 value.
+ * ID of second node.
+ * @param new_p2 new p2 value
+ */
+void
+NavGraphGeneratorInterface::AddEdgeMessage::set_p2(const char * new_p2)
+{
+  strncpy(data->p2, new_p2, sizeof(data->p2));
+}
+
+/** Get directed value.
+ * 
+      True to create a directed edge from p1 to p2, otherwise the edge
+      is assumed to be undirected.
+    
+ * @return directed value
+ */
+bool
+NavGraphGeneratorInterface::AddEdgeMessage::is_directed() const
+{
+  return data->directed;
+}
+
+/** Get maximum length of directed value.
+ * @return length of directed value, can be length of the array or number of 
+ * maximum number of characters for a string
+ */
+size_t
+NavGraphGeneratorInterface::AddEdgeMessage::maxlenof_directed() const
+{
+  return 1;
+}
+
+/** Set directed value.
+ * 
+      True to create a directed edge from p1 to p2, otherwise the edge
+      is assumed to be undirected.
+    
+ * @param new_directed new directed value
+ */
+void
+NavGraphGeneratorInterface::AddEdgeMessage::set_directed(const bool new_directed)
+{
+  data->directed = new_directed;
+}
+
+/** Get mode value.
+ * The edge insertion mode.
+ * @return mode value
+ */
+NavGraphGeneratorInterface::EdgeMode
+NavGraphGeneratorInterface::AddEdgeMessage::mode() const
+{
+  return (NavGraphGeneratorInterface::EdgeMode)data->mode;
+}
+
+/** Get maximum length of mode value.
+ * @return length of mode value, can be length of the array or number of 
+ * maximum number of characters for a string
+ */
+size_t
+NavGraphGeneratorInterface::AddEdgeMessage::maxlenof_mode() const
+{
+  return 1;
+}
+
+/** Set mode value.
+ * The edge insertion mode.
+ * @param new_mode new mode value
+ */
+void
+NavGraphGeneratorInterface::AddEdgeMessage::set_mode(const EdgeMode new_mode)
+{
+  data->mode = new_mode;
+}
+
+/** Clone this message.
+ * Produces a message of the same type as this message and copies the
+ * data to the new message.
+ * @return clone of this message
+ */
+Message *
+NavGraphGeneratorInterface::AddEdgeMessage::clone() const
+{
+  return new NavGraphGeneratorInterface::AddEdgeMessage(this);
+}
 /** @class NavGraphGeneratorInterface::SetGraphDefaultPropertyMessage <interfaces/NavGraphGeneratorInterface.h>
  * SetGraphDefaultPropertyMessage Fawkes BlackBoard Interface Message.
  * 
@@ -1856,6 +2221,7 @@ NavGraphGeneratorInterface::SetGraphDefaultPropertyMessage::SetGraphDefaultPrope
   data_ts   = (message_data_ts_t *)data_ptr;
   strncpy(data->property_name, ini_property_name, 64);
   strncpy(data->property_value, ini_property_value, 1024);
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1863,6 +2229,9 @@ NavGraphGeneratorInterface::SetGraphDefaultPropertyMessage::SetGraphDefaultPrope
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "property_name", 64, data->property_name);
   add_fieldinfo(IFT_STRING, "property_value", 1024, data->property_value);
 }
@@ -1874,6 +2243,7 @@ NavGraphGeneratorInterface::SetGraphDefaultPropertyMessage::SetGraphDefaultPrope
   memset(data_ptr, 0, data_size);
   data      = (SetGraphDefaultPropertyMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -1881,6 +2251,9 @@ NavGraphGeneratorInterface::SetGraphDefaultPropertyMessage::SetGraphDefaultPrope
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "property_name", 64, data->property_name);
   add_fieldinfo(IFT_STRING, "property_value", 1024, data->property_value);
 }
@@ -1994,6 +2367,7 @@ NavGraphGeneratorInterface::SetCopyGraphDefaultPropertiesMessage::SetCopyGraphDe
   data      = (SetCopyGraphDefaultPropertiesMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
   data->enable_copy = ini_enable_copy;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -2001,6 +2375,9 @@ NavGraphGeneratorInterface::SetCopyGraphDefaultPropertiesMessage::SetCopyGraphDe
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_BOOL, "enable_copy", 1, &data->enable_copy);
 }
 /** Constructor */
@@ -2011,6 +2388,7 @@ NavGraphGeneratorInterface::SetCopyGraphDefaultPropertiesMessage::SetCopyGraphDe
   memset(data_ptr, 0, data_size);
   data      = (SetCopyGraphDefaultPropertiesMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -2018,6 +2396,9 @@ NavGraphGeneratorInterface::SetCopyGraphDefaultPropertiesMessage::SetCopyGraphDe
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_BOOL, "enable_copy", 1, &data->enable_copy);
 }
 
@@ -2100,6 +2481,7 @@ NavGraphGeneratorInterface::RemovePointOfInterestMessage::RemovePointOfInterestM
   data      = (RemovePointOfInterestMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
   strncpy(data->id, ini_id, 64);
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -2107,6 +2489,9 @@ NavGraphGeneratorInterface::RemovePointOfInterestMessage::RemovePointOfInterestM
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
 }
 /** Constructor */
@@ -2117,6 +2502,7 @@ NavGraphGeneratorInterface::RemovePointOfInterestMessage::RemovePointOfInterestM
   memset(data_ptr, 0, data_size);
   data      = (RemovePointOfInterestMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -2124,6 +2510,9 @@ NavGraphGeneratorInterface::RemovePointOfInterestMessage::RemovePointOfInterestM
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
   add_fieldinfo(IFT_STRING, "id", 64, data->id);
 }
 
@@ -2205,6 +2594,7 @@ NavGraphGeneratorInterface::ComputeMessage::ComputeMessage() : Message("ComputeM
   memset(data_ptr, 0, data_size);
   data      = (ComputeMessage_data_t *)data_ptr;
   data_ts   = (message_data_ts_t *)data_ptr;
+  enum_map_ConnectionMode[(int)NOT_CONNECTED] = "NOT_CONNECTED";
   enum_map_ConnectionMode[(int)UNCONNECTED] = "UNCONNECTED";
   enum_map_ConnectionMode[(int)CLOSEST_NODE] = "CLOSEST_NODE";
   enum_map_ConnectionMode[(int)CLOSEST_EDGE] = "CLOSEST_EDGE";
@@ -2212,6 +2602,9 @@ NavGraphGeneratorInterface::ComputeMessage::ComputeMessage() : Message("ComputeM
   enum_map_FilterType[(int)FILTER_EDGES_BY_MAP] = "FILTER_EDGES_BY_MAP";
   enum_map_FilterType[(int)FILTER_ORPHAN_NODES] = "FILTER_ORPHAN_NODES";
   enum_map_FilterType[(int)FILTER_MULTI_GRAPH] = "FILTER_MULTI_GRAPH";
+  enum_map_EdgeMode[(int)NO_INTERSECTION] = "NO_INTERSECTION";
+  enum_map_EdgeMode[(int)SPLIT_INTERSECTION] = "SPLIT_INTERSECTION";
+  enum_map_EdgeMode[(int)FORCE] = "FORCE";
 }
 
 /** Destructor */
@@ -2290,20 +2683,24 @@ NavGraphGeneratorInterface::message_valid(const Message *message) const
   if ( m9 != NULL ) {
     return true;
   }
-  const SetGraphDefaultPropertyMessage *m10 = dynamic_cast<const SetGraphDefaultPropertyMessage *>(message);
+  const AddEdgeMessage *m10 = dynamic_cast<const AddEdgeMessage *>(message);
   if ( m10 != NULL ) {
     return true;
   }
-  const SetCopyGraphDefaultPropertiesMessage *m11 = dynamic_cast<const SetCopyGraphDefaultPropertiesMessage *>(message);
+  const SetGraphDefaultPropertyMessage *m11 = dynamic_cast<const SetGraphDefaultPropertyMessage *>(message);
   if ( m11 != NULL ) {
     return true;
   }
-  const RemovePointOfInterestMessage *m12 = dynamic_cast<const RemovePointOfInterestMessage *>(message);
+  const SetCopyGraphDefaultPropertiesMessage *m12 = dynamic_cast<const SetCopyGraphDefaultPropertiesMessage *>(message);
   if ( m12 != NULL ) {
     return true;
   }
-  const ComputeMessage *m13 = dynamic_cast<const ComputeMessage *>(message);
+  const RemovePointOfInterestMessage *m13 = dynamic_cast<const RemovePointOfInterestMessage *>(message);
   if ( m13 != NULL ) {
+    return true;
+  }
+  const ComputeMessage *m14 = dynamic_cast<const ComputeMessage *>(message);
+  if ( m14 != NULL ) {
     return true;
   }
   return false;
