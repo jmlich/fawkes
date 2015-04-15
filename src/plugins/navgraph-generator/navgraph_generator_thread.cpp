@@ -147,6 +147,10 @@ NavGraphGeneratorThread::loop()
   // Acquire lock on navgraph, no more searches/modifications until we are done
   MutexLocker lock(navgraph.objmutex_ptr());
 
+  // disable notifications as to not trigger one for all the many
+  // operations we are going to perform
+  navgraph->set_notifications_enabled(false);
+
   // remember default properties
   std::map<std::string, std::string> default_props = navgraph->default_properties();
 
@@ -258,8 +262,14 @@ NavGraphGeneratorThread::loop()
     logger->log_error(name(), e);
   }
 
+  // re-enable notifications
+  navgraph->set_notifications_enabled(true);
+
   logger->log_debug(name(), "  Graph computed, notifying listeners");
   navgraph->notify_of_change();
+
+  navgen_if_->set_final(true);
+  navgen_if_->write();
 
 #ifdef HAVE_VISUALIZATION
   if (cfg_visualization_)  publish_visualization();
@@ -275,9 +285,10 @@ NavGraphGeneratorThread::bb_interface_message_received(Interface *interface,
   MutexLocker lock(loop_mutex);
 
   if (message->is_of_type<NavGraphGeneratorInterface::ClearMessage>()) {
+    pois_.clear();
     obstacles_.clear();
     map_obstacles_.clear();
-    pois_.clear();
+    edges_.clear();
     default_properties_.clear();
     bbox_set_ = false;
     copy_default_properties_ = true;
@@ -390,6 +401,9 @@ NavGraphGeneratorThread::bb_interface_message_received(Interface *interface,
     copy_default_properties_ = msg->is_enable_copy();
 
   } else if (message->is_of_type<NavGraphGeneratorInterface::ComputeMessage>()) {
+    navgen_if_->set_msgid(message->id());
+    navgen_if_->set_final(false);
+    navgen_if_->write();
     wakeup();
 
   } else {
