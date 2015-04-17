@@ -68,7 +68,8 @@ function jumpcond_navifail(state)
    return (state.fsm.vars.msgid == 0
      or (state.fsm.vars.msgid ~= ppnavi:msgid() and state.wait_start > 20)
      or not ppnavi:has_writer()
-     or state.failed)
+     or state.failed
+     or (ppnavi:is_final() and ppnavi:error_code() ~= ppnavi.ERROR_NONE))
 end
 
 function jumpcond_navifinal(state)
@@ -88,7 +89,7 @@ fsm:define_states{
 fsm:add_transitions{
    {"PPGOTO", "FAILED", cond_and_precond="not ppnavi:has_writer()", desc="No writer for interface"},
    {"PPGOTO", "FAILED", cond=jumpcond_paramfail, desc="Invalid/insufficient parameters"},
-   {"PPGOTO", "FAILED", cond=jumpcond_navifail, desc="Navigator failure"},
+   {"PPGOTO", "FAILED", cond=jumpcond_navifail, desc="Navigator failure with err: " .. ppnavi:error_code()},
    {"PPGOTO", "FINAL", cond=jumpcond_navifinal, desc="Position reached"}
 
 }
