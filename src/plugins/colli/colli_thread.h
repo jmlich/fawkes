@@ -137,6 +137,7 @@ class ColliThread
   fawkes::cart_coord_2d_t target_point_;  // for update
 
   int escape_count_;                // count escaping behaviour
+  bool search_says_abort_;
 
   // Config file constants that are read at the beginning
   int frequency_;                          // frequency of the colli

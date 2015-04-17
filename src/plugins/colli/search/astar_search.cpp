@@ -53,6 +53,9 @@ Search::Search( LaserOccupancyGrid * occ_grid, Logger* logger, Configuration* co
   std::string cfg_prefix = "/plugins/colli/search/";
   cfg_search_line_allowed_cost_max_  = config->get_int((cfg_prefix + "line/cost_max").c_str());
   astar_ = new AStar( occ_grid, logger, config );
+
+  times_   = 0;
+
   logger_->log_debug("search", "(Constructor): Exiting");
 }
 
@@ -70,14 +73,20 @@ Search::~Search()
  * @param target_y Target y position in grid
    */
 void
-Search::update( int robo_x, int robo_y, int target_x, int target_y )
+Search::update( int robo_x, int robo_y, int target_x, int target_y, bool &search_cant_finish )
 {
+  search_cant_finish = false;
   updated_successful_ = false;
 
   // check, if a position is in an obstacle
   robo_position_    = point_t( robo_x, robo_y );
   local_target_     = point_t( robo_x, robo_y );
   local_trajec_ = point_t( robo_x, robo_y );
+
+  // if times_ wasn't countet up for a given periote reset it (problem solved)
+  if ( fawkes::Time().in_sec() - times_interval_.in_sec() >= 10 ) {
+    times_ = 0;
+  }
 
   if ( occ_grid_->get_prob( target_x, target_y ) == cell_costs_.occ ) {
     int step_x = 1;  // initializing to 1
@@ -90,11 +99,29 @@ Search::update( int robo_x, int robo_y, int target_x, int target_y )
 
     target_position_ = astar_->remove_target_from_obstacle( target_x, target_y, step_x, step_y );
 
+    // if target is occupied and we are so close to it that the robot pose is the new target pose, count up untill a break trigers or the situation is solved
+    if ( abs(robo_position_.x - target_position_.x) <= 1 &&
+         abs(robo_position_.y - target_position_.y) <= 1
+       ) {
+      // set timer
+      times_interval_ = fawkes::Time();
+      times_++;
+    }
+
   } else {
     target_position_ = point_t( target_x, target_y );
   }
 
+  // if the target was occupied for 10 times => stop trying
+  if (times_ >= 10 ) {
+//    logger_->log_warn("AStar_search", "Times: %i\tTimediff: %f", times_, fawkes::Time().in_sec() - times_interval_.in_sec());
+    times_ = 0;
+    search_cant_finish = true;
+    return; //the rest should be unimportant since it will be abourt anyway
+  }
+
   astar_->solve( robo_position_, target_position_, plan_ );
+
 
   if (plan_.size() > 0) {
     updated_successful_ = true;
@@ -103,7 +130,6 @@ Search::update( int robo_x, int robo_y, int target_x, int target_y )
     local_trajec_ = calculate_local_trajec_point();
   }
 }
-
 
 /** Check, if the update was successful or not.
  * precondition: update had to be called.

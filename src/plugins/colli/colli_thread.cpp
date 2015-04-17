@@ -172,6 +172,7 @@ ColliThread::init()
 
   target_new_ = false;
   escape_count_ = 0;
+  search_says_abort_ = false;
 
   logger->log_debug(name(), "(init): Initialization done.");
 }
@@ -330,8 +331,16 @@ ColliThread::loop()
 
     // Do not drive if there is no new target
   } else if( if_colli_target_->is_final() ) {
+    escape_count_ = 0;
     //logger->log_debug(name(), "No new target for colli...ABORT");
     abort = true;
+  } else if ( search_says_abort_ ) {
+    logger->log_error(name(), "Search says abort");
+    escape_count_ = 0;
+    abort = true;
+    if_colli_target_->set_final(true);
+    if_colli_target_->set_error_code(NavigatorInterface::ERROR_OBSTRUCTION);
+    if_colli_target_->write();
   }
 
   if( abort ) {
@@ -404,6 +413,7 @@ ColliThread::colli_goto_(float x, float y, float ori, NavigatorInterface* iface)
 
   colli_data_.final = false;
   target_new_ = true;
+  search_says_abort_ = false;
   mutex_->unlock();
 }
 
@@ -551,7 +561,8 @@ ColliThread::colli_execute_()
       } else {
         // search for a path
         search_->update( robo_grid_pos_.x, robo_grid_pos_.y,
-                        (int)target_grid_pos_.x, (int)target_grid_pos_.y );
+                        (int)target_grid_pos_.x, (int)target_grid_pos_.y, search_says_abort_ );
+
         if ( search_->updated_successful() ) {
           // path exists
           local_grid_target_ = search_->get_local_target();
