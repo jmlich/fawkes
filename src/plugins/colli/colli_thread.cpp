@@ -626,7 +626,9 @@ ColliThread::colli_execute_()
     proposed_.x = part_x * max_v;
     proposed_.y = part_y * max_v;
 
-    logger->log_error(name(), "Emergency slow down: %f , %f , %f", proposed_.x, proposed_.y, proposed_.rot);
+    if ( cfg_write_spam_debug_ ) {
+      logger->log_warn(name(), "Emergency slow down: %f , %f , %f", proposed_.x, proposed_.y, proposed_.rot);
+    }
 
     emergency_motor_instruct_->drive( proposed_.x, proposed_.y, proposed_.rot );
 
