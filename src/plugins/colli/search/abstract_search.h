@@ -54,7 +54,7 @@ class AbstractSearch
    * @param target_x Target x position in grid
    * @param target_y Target y position in grid
    */
-  virtual void update( int robo_x, int robo_y, int target_x, int target_y ) = 0;
+  virtual void update( int robo_x, int robo_y, int target_x, int target_y, bool &search_cant_finish ) = 0;
 
   /** Checks if the update was successful.
    * @return true if "update(...)" was successful, fals otherwise.

@@ -25,6 +25,8 @@
 
 #include "abstract_search.h"
 
+#include <utils/time/time.h>
+
 #include <vector>
 
 namespace fawkes
@@ -51,7 +53,7 @@ class Search: public AbstractSearch
   virtual ~Search();
 
   ///\brief update complete plan things
-  void update( int robo_x, int robo_y, int target_x, int target_y );
+  void update( int robo_x, int robo_y, int target_x, int target_y, bool &search_cant_finish );
 
   ///\brief returns, if the update was successful or not.
   bool updated_successful();
@@ -76,6 +78,8 @@ class Search: public AbstractSearch
   /** Method for checking if an obstacle is between two points. */
   bool is_obstacle_between( const point_t &a, const point_t &b, const int maxcount );
 
+  int times_;
+  fawkes::Time times_interval_;
 
   AStar * astar_;              /**< the A* search algorithm */
   std::vector< point_t > plan_; /**< the local representation of the plan */
