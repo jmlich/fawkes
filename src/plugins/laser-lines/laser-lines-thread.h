@@ -22,6 +22,9 @@
 #ifndef __PLUGINS_LASER_LINES_LASER_LINES_THREAD_H_
 #define __PLUGINS_LASER_LINES_LASER_LINES_THREAD_H_
 
+#define PCL_FORCE_QUIET
+#include <pcl_utils/pcl_logging.h>
+
 // must be first for reliable ROS detection
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
