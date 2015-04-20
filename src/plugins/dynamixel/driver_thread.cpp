@@ -75,6 +75,7 @@ DynamixelDriverThread::init()
   cfg_ccw_compl_slope_                  = config->get_uint((cfg_prefix_ + "ccw_compl_slope").c_str());
   cfg_def_angle_margin_                 = config->get_float((cfg_prefix_ + "angle_margin").c_str());
   cfg_enable_echo_fix_                  = config->get_bool((cfg_prefix_ + "enable_echo_fix").c_str());
+  cfg_enable_connection_stability_      = config->get_bool((cfg_prefix_ + "enable_connection_stability").c_str());
   cfg_torque_limit_                     = config->get_float((cfg_prefix_ + "torque_limit").c_str());
   cfg_temperature_limit_                = config->get_uint((cfg_prefix_ + "temperature_limit").c_str());
   cfg_prevent_alarm_shutdown_           = config->get_bool((cfg_prefix_ + "prevent_alarm_shutdown").c_str());
@@ -82,7 +83,7 @@ DynamixelDriverThread::init()
   cfg_min_voltage_                      = config->get_float((cfg_prefix_ + "min_voltage").c_str());
   cfg_max_voltage_                      = config->get_float((cfg_prefix_ + "max_voltage").c_str());
 
-  chain_ = new DynamixelChain(cfg_device_.c_str(), cfg_read_timeout_ms_, cfg_enable_echo_fix_, cfg_min_voltage_, cfg_max_voltage_);
+  chain_ = new DynamixelChain(cfg_device_.c_str(), cfg_read_timeout_ms_, cfg_enable_echo_fix_, cfg_enable_connection_stability_, cfg_min_voltage_, cfg_max_voltage_);
   DynamixelChain::DeviceList devl = chain_->discover();
   std::list<std::string> found_servos;
   for (DynamixelChain::DeviceList::iterator i = devl.begin(); i != devl.end(); ++i) {
@@ -178,6 +179,7 @@ DynamixelDriverThread::init()
     s.servo_if->set_ccw_margin(ccw_margin);
     s.servo_if->set_torque_limit(chain_->get_torque_limit(servo_id));
     s.servo_if->set_max_velocity(s.max_speed);
+    s.servo_if->set_enable_prevent_alarm_shutdown(cfg_prevent_alarm_shutdown_);
     s.servo_if->write();
 
     s.servo_if->set_auto_timestamping(false);
@@ -270,7 +272,7 @@ DynamixelDriverThread::exec_sensor()
       
       if ((chain_->get_load(servo_id) & 0x3ff) > (cfg_prevent_alarm_shutdown_threshold_ * chain_->get_torque_limit(servo_id))) {
         logger->log_warn(name(), "Servo with ID: %d is in overload condition: torque_limit: %d, load: %d", servo_id, chain_->get_torque_limit(servo_id), chain_->get_load(servo_id) & 0x3ff);
-        if (cfg_prevent_alarm_shutdown_) {
+        if (s.servo_if->is_enable_prevent_alarm_shutdown()) {
           // is the current load cw or ccw?
           if (chain_->get_load(servo_id) & 0x400) {
             goto_angle(servo_id, get_angle(servo_id) + 0.001);
@@ -343,6 +345,10 @@ DynamixelDriverThread::exec_act()
 
       } else if (s.servo_if->msgq_first_is<DynamixelServoInterface::ResetRawErrorMessage>()) {
         s.servo_if->set_error(0);
+        
+      } else if (s.servo_if->msgq_first_is<DynamixelServoInterface::SetPreventAlarmShutdownMessage>()) {
+        DynamixelServoInterface::SetPreventAlarmShutdownMessage *msg = s.servo_if->msgq_first(msg);
+        s.servo_if->set_enable_prevent_alarm_shutdown(msg->is_enable_prevent_alarm_shutdown());
         
       } else {
 	logger->log_warn(name(), "Unknown message received");
