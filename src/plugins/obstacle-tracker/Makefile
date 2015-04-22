@@ -28,17 +28,25 @@ endif
 
 CFLAGS += $(CFLAGS_CPP11) -Wno-unknown-pragmas
 
-LIBS_obstacle_tracker = fawkescore fawkesutils fawkesaspects fvutils fawkesbaseapp \
+LIBS_obstacle_tracker_average = fawkescore fawkesutils fawkesaspects fvutils fawkesbaseapp \
 			fawkestf fawkesinterface fawkesblackboard \
 			Position3DInterface Velocity3DInterface
-OBJS_obstacle_tracker = obstacle-tracker-plugin.o obstacle-tracker-thread.o
+			
+LIBS_obstacle_tracker_kalman = fawkescore fawkesutils fawkesaspects fvutils fawkesbaseapp \
+			fawkestf fawkesinterface fawkesblackboard \
+			Position3DInterface Velocity3DInterface
 
-OBJS_all    = $(OBJS_obstacle_tracker)
+OBJS_obstacle_tracker_average = obstacle-tracker-average-plugin.o obstacle-tracker-average-thread.o
+
+OBJS_obstacle_tracker_kalman = obstacle-tracker-kalman-plugin.o obstacle-tracker-kalman-thread.o
+
+OBJS_all = $(OBJS_obstacle_tracker_average) $(OBJS_obstacle_tracker_kalman)
 
 ifneq ($(GCC_TOO_OLD),1)
   CFLAGS += $(CFLAGS_TF)
   LDFLAGS += $(LDFLAGS_TF)
-  PLUGINS_all = $(PLUGINDIR)/obstacle-tracker.$(SOEXT)
+  PLUGINS_all += $(PLUGINDIR)/obstacle-tracker-average.$(SOEXT)
+    PLUGINS_all += $(PLUGINDIR)/obstacle-tracker-kalman.$(SOEXT)
 else
   WARN_TARGETS += warning_old_gcc
 endif
