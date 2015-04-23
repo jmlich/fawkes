@@ -199,9 +199,10 @@ class NavGraph
   static std::string format_name(const char *format, ...);
   std::string gen_unique_name(const char *prefix = "U-");
 
- private:
   void assert_valid_edges();
   void assert_connected();
+
+ private:
   void edge_add_no_intersection(const NavGraphEdge &edge);
   void edge_add_split_intersection(const NavGraphEdge &edge);
 
