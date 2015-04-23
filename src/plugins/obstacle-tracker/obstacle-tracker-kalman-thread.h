@@ -33,13 +33,13 @@
 #include <aspect/tf.h>
 #include <tuple>
 
-#include <filter/extendedkalmanfilter.h>
+#include <bfl/filter/extendedkalmanfilter.h>
 
-#include <model/linearanalyticsystemmodel_gaussianuncertainty.h>
-#include <model/linearanalyticmeasurementmodel_gaussianuncertainty.h>
+#include <bfl/model/linearanalyticsystemmodel_gaussianuncertainty.h>
+#include <bfl/model/linearanalyticmeasurementmodel_gaussianuncertainty.h>
 
-#include <pdf/analyticconditionalgaussian.h>
-#include <pdf/linearanalyticconditionalgaussian.h>
+#include <bfl/pdf/analyticconditionalgaussian.h>
+#include <bfl/pdf/linearanalyticconditionalgaussian.h>
 
 #include <bfl/wrappers/matrix/matrix_wrapper.h>
 
@@ -69,12 +69,6 @@ class ObstacleTrackerKalmanThread
 			  fawkes::Time time;
   };
 
-
-  struct interface_pair{
-	  fawkes::Position3DInterface* ClusterPosition3DInterface;
-	  fawkes::Velocity3DInterface* ClusterVelocity3DInterface;
-  };
-
  public:
   ObstacleTrackerKalmanThread();
   virtual ~ObstacleTrackerKalmanThread();
@@ -89,34 +83,10 @@ class ObstacleTrackerKalmanThread
 
  private:
   std::string  										cfg_laser_cluster_iface_prefix_;
-  std::string										cfg_cluster_velocity_iface_prefix_;
   int  												cfg_min_vishistory_;
   fawkes::LockList<fawkes::Position3DInterface *>  	cluster_ifs_;
-  fawkes::LockList<fawkes::Velocity3DInterface *>  	velocity_ifs_;
-  std::map<std::string, interface_pair>  			dyn_object_ifs_;
 
  private:
-  // pdf / model / filter
-  BFL::AnalyticSystemModelGaussianUncertainty*            sys_model_;
-  BFL::NonLinearAnalyticConditionalGaussianOdo*           sys_pdf_;
-  BFL::LinearAnalyticConditionalGaussian*                 cluster_meas_pdf_;
-  BFL::LinearAnalyticMeasurementModelGaussianUncertainty* cluster_meas_model_;
-  BFL::Gaussian*                                          prior_;
-  BFL::ExtendedKalmanFilter*                              filter_;
-  MatrixWrapper::SymmetricMatrix                          odom_covariance_, imu_covariance_, vo_covariance_, gps_covariance_;
-
-  // vars
-  MatrixWrapper::ColumnVector vel_desi_, filter_estimate_old_vec_;
-  fawkes::tf::Transform filter_estimate_old_;
-  fawkes::tf::StampedTransform cluster_meas_;
-  fawkes::Time filter_time_old_;
-  bool filter_initialized_, cluster_initialized_;
-
-  std::string output_frame_;
-  fawkes::tf::Transformer transformer_;
-
-
-
 
 };
 
