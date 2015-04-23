@@ -156,7 +156,11 @@ NavGraphGeneratorThread::loop()
 
   navgraph->clear();
   logger->log_debug(name(), "  Computing Voronoi");
-  nggv.compute(navgraph);
+  try {
+    nggv.compute(navgraph);
+  } catch (Exception &e) {
+    logger->log_error(name(), "  Failed to compute graph: %s", e.what_no_backtrace());
+  }
 
   // post-processing
   if (filter_["FILTER_EDGES_BY_MAP"]) {
@@ -256,10 +260,16 @@ NavGraphGeneratorThread::loop()
   // Finalize graph setup
   try {
     logger->log_debug(name(), "  Calculate reachability relations");
-    navgraph->calc_reachability();
+    navgraph->calc_reachability(/* allow multi graph */ true);
   } catch (Exception &e) {
     logger->log_error(name(), "Failed to finalize graph setup, exception follows");
     logger->log_error(name(), e);
+  }
+
+  try {
+    navgraph->assert_connected();
+  } catch (Exception &e) {
+    logger->log_warn(name(), "Graph not fully connected: %s", e.what_no_backtrace());
   }
 
   // re-enable notifications
