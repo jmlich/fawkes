@@ -22,6 +22,7 @@
 
 #include <navgraph/generators/voronoi.h>
 #include <core/exception.h>
+#include <core/threading/mutex_locker.h>
 
 // includes for defining the Voronoi diagram adaptor
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
@@ -193,7 +194,7 @@ NavGraphGeneratorVoronoi::compute(fawkes::LockPtr<fawkes::NavGraph> graph)
   unsigned int num_nodes = 0;
   if (vd.is_valid()) {
     VD::Edge_iterator e;
-    graph.lock();
+    MutexLocker lock(graph.objmutex_ptr());
     for (e = vd.edges_begin(); e != vd.edges_end(); ++e) {
       if (e->is_segment()) {
 	if (bbox_enabled_) {
@@ -233,8 +234,7 @@ NavGraphGeneratorVoronoi::compute(fawkes::LockPtr<fawkes::NavGraph> graph)
       }
     }
 
-    graph->calc_reachability();
-    graph.unlock();
+    graph->calc_reachability(true);
   }
 }
 
