@@ -21,11 +21,11 @@ ifndef __buildsys_bfl_mk_
 __buildsys_bfl_mk_ := 1
 
 ifneq ($(PKGCONFIG),)
-  HAVE_BFL = $(if $(shell $(PKGCONFIG) --exists 'bfl'; echo $${?/1/}),1,0)
+  HAVE_BFL = $(if $(shell $(PKGCONFIG) --exists 'orocos-bfl'; echo $${?/1/}),1,0)
 endif
 
 ifeq ($(HAVE_BFL),1)
-  CFLAGS_BFL  = -DHAVE_BFL $(shell $(PKGCONFIG) --cflags 'orcos-bfl') 
+  CFLAGS_BFL  = -DHAVE_BFL $(shell $(PKGCONFIG) --cflags 'orocos-bfl') 
   LDFLAGS_BFL = $(shell $(PKGCONFIG) --libs 'orocos-bfl')
 endif
 
