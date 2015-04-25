@@ -266,6 +266,9 @@ NavGraphThread::loop()
       nav_if_->read();
       fawkes::Time now(clock);
       if (nav_if_->is_final()) {
+	if (nav_if_->error_code() != NavigatorInterface::ERROR_NONE) {
+	  pp_nav_if_->set_error_code(nav_if_->error_code());
+	}
 	pp_nav_if_->set_final(true);
 	needs_write = true;
       } else if ((now - target_reached_at_) >= target_time_) {
