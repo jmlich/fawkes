@@ -218,6 +218,11 @@ ColliThread::is_final() const
   return colli_data_.final;
 }
 
+uint32_t
+ColliThread::error_code() const
+{
+  return if_colli_target_->error_code();
+}
 /** Sends a goto-command, using global coordinates.
  * @param x Global x-coordinate of destination
  * @param y Global y-coordinate of destination
@@ -401,6 +406,7 @@ ColliThread::colli_goto_(float x, float y, float ori, NavigatorInterface* iface)
   if_colli_target_->set_dest_x( x );
   if_colli_target_->set_dest_y( y );
   if_colli_target_->set_dest_ori( ori );
+  if_colli_target_->set_error_code(NavigatorInterface::ERROR_NONE);
 
   // x and y are not needed anymore. use them for calculation of target distance
   x -= if_motor_->odometry_position_x();

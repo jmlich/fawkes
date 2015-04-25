@@ -135,6 +135,7 @@ ColliActThread::loop()
 {
   // update interfaces
   if_navi_->set_final(colli_final());
+  if_navi_->set_error_code( thread_colli_->error_code() );
 
   // process interface messages
   Message* motion_msg = NULL;
@@ -233,6 +234,7 @@ ColliActThread::loop()
       if_navi_->set_dest_ori(msg->orientation());
       if_navi_->set_dest_dist(sqrt(msg->x()*msg->x() + msg->y()*msg->y()));
       if_navi_->set_final(false);
+      if_navi_->set_error_code(NavigatorInterface::ERROR_NONE);
 
       thread_colli_->colli_relgoto(msg->x(), msg->y(), msg->orientation(), if_navi_);
 
@@ -250,6 +252,7 @@ ColliActThread::loop()
       if_navi_->set_dest_ori(msg->orientation());
       if_navi_->set_dest_dist(msg->dist());
       if_navi_->set_final(false);
+      if_navi_->set_error_code(NavigatorInterface::ERROR_NONE);
 
       thread_colli_->colli_relgoto(cart_x, cart_y, msg->orientation(), if_navi_);
     }

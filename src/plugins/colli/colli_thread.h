@@ -74,6 +74,7 @@ class ColliThread
   virtual void set_vis_thread(ColliVisualizationThread* vis_thread);
 
   bool is_final() const;
+  uint32_t error_code() const;
 
   void colli_goto(float x, float y, float ori, fawkes::NavigatorInterface* iface);
   void colli_relgoto(float x, float y, float ori, fawkes::NavigatorInterface* iface);
