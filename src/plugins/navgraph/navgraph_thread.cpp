@@ -205,8 +205,16 @@ NavGraphThread::once()
 void
 NavGraphThread::loop()
 {
-  // process messages
   bool needs_write = false;
+  // check for local planer error
+  nav_if_->read();
+  if (nav_if_->is_final() && nav_if_->error_code() != NavigatorInterface::ERROR_NONE) {
+    pp_nav_if_->set_error_code(nav_if_->error_code());
+    pp_nav_if_->set_final(true);
+    needs_write = true;
+  }
+
+  // process messages
   while (! pp_nav_if_->msgq_empty()) {
     needs_write = true;
 
@@ -266,14 +274,14 @@ NavGraphThread::loop()
       nav_if_->read();
       fawkes::Time now(clock);
       if (nav_if_->is_final()) {
-	if (nav_if_->error_code() != NavigatorInterface::ERROR_NONE) {
-	  pp_nav_if_->set_error_code(nav_if_->error_code());
-	}
-	pp_nav_if_->set_final(true);
-	needs_write = true;
+        if (nav_if_->error_code() != NavigatorInterface::ERROR_NONE) {
+          pp_nav_if_->set_error_code(nav_if_->error_code());
+        }
+        pp_nav_if_->set_final(true);
+        needs_write = true;
       } else if ((now - target_reached_at_) >= target_time_) {
-	stop_motion();
-	needs_write = true;
+        stop_motion();
+        needs_write = true;
       }
     } else if (node_reached()) {
       logger->log_info(name(), "Node '%s' has been reached",
