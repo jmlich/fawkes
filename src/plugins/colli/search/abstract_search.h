@@ -53,6 +53,7 @@ class AbstractSearch
    * @param robo_y Robot y position in grid
    * @param target_x Target x position in grid
    * @param target_y Target y position in grid
+   * @param search_cant_finish [out] if the search was aboarded because of an obstruction
    */
   virtual void update( int robo_x, int robo_y, int target_x, int target_y, bool &search_cant_finish ) = 0;
 

@@ -218,6 +218,10 @@ ColliThread::is_final() const
   return colli_data_.final;
 }
 
+/**
+ * Returns the colli internal error
+ * @returns error
+ */
 uint32_t
 ColliThread::error_code() const
 {
