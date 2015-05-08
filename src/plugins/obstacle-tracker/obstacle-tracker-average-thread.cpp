@@ -101,6 +101,8 @@ ObstacleTrackerAverageThread::finalize()
   cluster_ifs_.clear();
   obstacle_map_.clear();
 
+
+
 }
 
 void

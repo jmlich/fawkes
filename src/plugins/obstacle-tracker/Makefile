@@ -46,8 +46,6 @@ OBJS_all = $(OBJS_obstacle_tracker_average) $(OBJS_obstacle_tracker_kalman)
 ifneq ($(GCC_TOO_OLD),1)
   CFLAGS += $(CFLAGS_TF) $(CFLAGS_BFL) $(CFLAGS_BOOST)
   LDFLAGS += $(LDFLAGS_TF) $(LDFLAGS_BFL) $(LDFLAGS_BOOST)
-
-  $(warning l:$(LDFLAGS_BFL))
   PLUGINS_all += $(PLUGINDIR)/obstacle-tracker-average.$(SOEXT)
   ifeq ($(HAVE_BFL),1)
     PLUGINS_all += $(PLUGINDIR)/obstacle-tracker-kalman.$(SOEXT)

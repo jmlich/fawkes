@@ -20,18 +20,12 @@
  */
 
 #include "obstacle-tracker-kalman-thread.h"
+#include "object-estimator.h"
 
 #include <tf/utils.h>
-#include <core/utils/lockptr.h>
-#include <interfaces/Position3DInterface.h>
-#include <interfaces/Velocity3DInterface.h>
 #include <cmath>
-
-#include <fstream>
-
 using namespace fawkes;
 using namespace MatrixWrapper;
-using namespace BFL;
 
 
 /** @class ObstacleTrackerKalmanThread "obstacle-tracker-kalman-thread.h"
@@ -64,42 +58,103 @@ ObstacleTrackerKalmanThread::init()
   std::string pattern = cfg_laser_cluster_iface_prefix_ + "*";
   cluster_ifs_ = blackboard->open_multiple_for_reading<Position3DInterface>(pattern.c_str());
 
-
+  /************ CREATE FILTER FOR EVERY INTERFACE *************************************/
+  unsigned int i = 0;
+  for(auto& interface : cluster_ifs_){
+	  i++;
+	  if(i==1) {
+		  logger->log_info(name(),"Create Filter for Interface %s", interface->id());
+		  filter_ = new ObjectEstimator(logger, clock, "odom", "tracked_object_1");
+	  }
+  }
 }
+
 
 void
 ObstacleTrackerKalmanThread::finalize()
 {
 
+  // clear list of interfaces
   cluster_ifs_.clear();
+  delete filter_;
 
 }
 
+/*
+ *
+ * Initialize Cluster for testing
+ * Has to be moved into loop
+ * if new object is detected, initialize filter with new object
+ *
+ */
 void
 ObstacleTrackerKalmanThread::once()
 {
+
+  int i =0;
+  for( auto& interface : cluster_ifs_){
+
+	  interface->read();
+
+	  if (i == 0) {
+
+		 // INITIALIZATION OF FILTER -> GOES INTO LOOP LATER ON
+
+		  // create stamped-transform from Quaternion and Euler Vektor at current time from Interface
+		  tf::Quaternion q(interface->rotation(0),interface->rotation(1),
+							interface->rotation(2),interface->rotation(3));
+		  tf::Vector3 vtrans(interface->translation(0), interface->translation(1), interface->translation(2));
+		  fawkes::tf::StampedTransform cluster_transform_stamped;
+
+		  fawkes::Time now(clock);
+		  cluster_transform_stamped = fawkes::tf::StampedTransform(fawkes::tf::Transform(q,vtrans), now, "odom", "tracked_object_1");
+
+		  filter_->initialize(cluster_transform_stamped, now);
+		  i++;
+	  }
+  }
+
 }
 
+/*
+ *
+ *
+ *
+ */
 void
 ObstacleTrackerKalmanThread::loop()
 {
 
-  for(auto& interface : cluster_ifs_){
+  /* If there is a new Object, initialize filter */
+	// is currently in once()
 
 
-      interface->read();
+  /* get measurements and add measurements to filter */
 
-	  if (interface->visibility_history() >= cfg_min_vishistory_) {
-	      	  // get translation of obstacle from interface
-	      	  timed_translation cluster_trans;
-	      	  cluster_trans.x = interface->translation(0);
-	      	  cluster_trans.y = interface->translation(1);
+  unsigned int i=0;
+  for( auto& interface : cluster_ifs_){
 
-	      	  // get current time
-	      	  fawkes::Time now(clock);
-	      	  cluster_trans.time = now;
+	  interface->read();
+
+	  if (i == 0) {
+
+
+		  // create stamped-transform from Quaternion and Euler Vektor at current time from Interface
+		  tf::Quaternion q(interface->rotation(0),interface->rotation(1),
+				            interface->rotation(2),interface->rotation(3));
+		  tf::Vector3 vtrans(interface->translation(0), interface->translation(1), interface->translation(2));
+		  fawkes::tf::StampedTransform cluster_transform_stamped;
+
+		  fawkes::Time now(clock);
+		  cluster_transform_stamped = fawkes::tf::StampedTransform(fawkes::tf::Transform(q,vtrans), now, "odom", "tracked_object_1");
+
+		  fawkes::Time now_l(clock);
+		  filter_->update(now_l,cluster_transform_stamped);
 
 	  }
+
+	  // update if value changes since last loop
+	  i++;
 
   }// end for
 }// end loop

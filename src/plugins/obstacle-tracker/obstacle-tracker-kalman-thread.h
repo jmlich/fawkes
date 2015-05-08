@@ -31,7 +31,11 @@
 #include <aspect/blackboard.h>
 #include <aspect/blocked_timing.h>
 #include <aspect/tf.h>
-#include <tuple>
+#include <vector>
+
+#include <interfaces/Position3DInterface.h>
+#include <interfaces/Velocity3DInterface.h>
+
 
 #include <bfl/filter/extendedkalmanfilter.h>
 
@@ -43,6 +47,7 @@
 
 #include <bfl/wrappers/matrix/matrix_wrapper.h>
 
+#include "object-estimator.h"
 
 namespace fawkes {
   class Position3DInterface;
@@ -61,13 +66,6 @@ class ObstacleTrackerKalmanThread
 {
  private:
 
-  /*
-   *  map of dynamic obstacle detections
-   */
-  struct timed_translation{
-			  double x,y,z;
-			  fawkes::Time time;
-  };
 
  public:
   ObstacleTrackerKalmanThread();
@@ -85,8 +83,7 @@ class ObstacleTrackerKalmanThread
   std::string  										cfg_laser_cluster_iface_prefix_;
   int  												cfg_min_vishistory_;
   fawkes::LockList<fawkes::Position3DInterface *>  	cluster_ifs_;
-
- private:
+  ObjectEstimator*									filter_;
 
 };
 

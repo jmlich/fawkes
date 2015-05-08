@@ -33,6 +33,8 @@
 #include <aspect/tf.h>
 #include <boost/circular_buffer.hpp>
 #include <tuple>
+#include <interfaces/Position3DInterface.h>
+#include <interfaces/Velocity3DInterface.h>
 
 
 namespace fawkes {
