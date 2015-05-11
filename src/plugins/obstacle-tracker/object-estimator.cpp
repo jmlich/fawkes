@@ -35,32 +35,62 @@ ObjectEstimator::ObjectEstimator(fawkes::Logger* logger, fawkes::Clock* clock, s
   logger_ = logger;
   clock_ = clock;
 
-  Matrix A(3,3);
-  A(1,1) = 1; A(1,2) = 0; A(1,3) = 0;
-  A(2,1) = 0; A(2,2) = 1; A(2,3) = 0;
-  A(3,1) = 0; A(3,2) = 0; A(3,3) = 1;
+  /*
+   * Create SYSTEM MODEL according to model defined in header
+   */
+  double dt = 0.001;
+  Matrix A(6,6);
+  A(1,1) = 1; A(1,2) = 0; A(1,3) = 0;   A(1,4) = dt; A(1,5) = 0; A(1,6) = 0;
+  A(2,1) = 0; A(2,2) = 1; A(2,3) = 0;   A(2,4) = 0; A(2,5) = dt; A(2,6) = 0;
+  A(3,1) = 0; A(3,2) = 0; A(3,3) = 1;   A(3,4) = 0; A(3,5) = 0; A(3,6) = dt;
+  A(4,1) = 0; A(4,2) = 0; A(4,3) = 0;   A(4,4) = 1; A(3,5) = 0; A(4,6) = 0;
+  A(5,1) = 0; A(5,2) = 0; A(5,3) = 0;   A(5,4) = 0; A(3,5) = 1; A(5,6) = 0;
+  A(6,1) = 0; A(6,2) = 0; A(6,3) = 0;   A(6,4) = 0; A(3,5) = 0; A(6,6) = 1;
 
-  Matrix B(3,3);
+  Matrix B(1,6); B = 0.0;
+  B(1,1) = pow(dt,2)/2;
+  B(1,2) = pow(dt,2)/2;
+  B(1,3) = pow(dt,2)/2;
+  B(1,4) = dt;
+  B(1,5) = dt;
+  B(1,6) = dt;
 
+  std::vector<Matrix> AB(2);
+  AB[0] = A;
+  AB[1] = B;
 
-  // create SYSTEM MODEL
-  ColumnVector sysNoise_Mu(3);  sysNoise_Mu = 0;
-  SymmetricMatrix sysNoise_Cov(3,3); sysNoise_Cov = 0;
-  for (unsigned int i=1; i<=3; i++) sysNoise_Cov(i,i) = pow(1000.0,2);
+  //  Matrix Q(6,6);
+  //  Q(1,1) = pow(dt,4)/4;   Q(1,2) = 0;           Q(1,3) = 0;           Q(1,4) = pow(dt,3)/3; Q(1,5) = 0;           Q(1,6) = 0;
+  //  Q(2,1) = 0;             Q(2,2) = pow(dt,4)/4; Q(2,3) = 0;           Q(2,4) = 0;           Q(2,5) = pow(dt,3)/3; Q(2,6) = 0;
+  //  Q(3,1) = 0;             Q(3,2) = 0;           Q(3,3) = pow(dt,4)/4; Q(3,4) = 0;           Q(3,5) = 0;           Q(3,6) = pow(dt,3)/3;
+  //  Q(4,1) = pow(dt,3)/3;   Q(4,2) = 0;           Q(4,3) = 0;           Q(4,4) = pow(dt,2);   Q(3,5) = 0;           Q(4,6) = 0;
+  //  Q(5,1) = 0;             Q(5,2) = pow(dt,3)/3; Q(5,3) = 0;           Q(5,4) = 0;           Q(3,5) = pow(dt,2);   Q(5,6) = 0;
+  //  Q(6,1) = 0;             Q(6,2) = 0;           Q(6,3) = pow(dt,3)/3; Q(6,4) = 0;           Q(3,5) = 0;           Q(6,6) = pow(dt,2);
+
+  // System noise (has to have state-size)
+  ColumnVector sysNoise_Mu(6);  sysNoise_Mu = 0;
+  SymmetricMatrix sysNoise_Cov(6,6);
+  for (unsigned int i=1; i<=6; i++) sysNoise_Cov(i,i) = pow(1000.0,2);
   BFL::Gaussian system_Uncertainty(sysNoise_Mu, sysNoise_Cov);
+
   sys_pdf_   = new LinearAnalyticConditionalGaussian(A,system_Uncertainty);
   sys_model_ = new AnalyticSystemModelGaussianUncertainty(sys_pdf_);
 
-  // create MEASUREMENT MODEL CLUSTER
+
+
+  // create MEASUREMENT MODEL CLUSTER - only positions can be measured
+  Matrix C(3,6);
+  C(1,1) = 1; C(1,2) = 0; C(1,3) = 0;   C(1,4) = 0; C(1,5) = 0; C(1,6) = 0;
+  C(2,1) = 0; C(2,2) = 1; C(2,3) = 0;   C(2,4) = 0; C(2,5) = 0; C(2,6) = 0;
+  C(3,1) = 0; C(3,2) = 0; C(3,3) = 1;   C(3,4) = 0; C(3,5) = 0; C(3,6) = 0;
+
   ColumnVector measNoiseCluster_Mu(3);  measNoiseCluster_Mu = 0;
   SymmetricMatrix measNoiseCluster_Cov(3);  measNoiseCluster_Cov = 0;
-  for (unsigned int i=1; i<=3; i++) measNoiseCluster_Cov(i,i) = 1; // Diagonal Matrix for H-Matrix
+  for (unsigned int i=1; i<=3; i++) measNoiseCluster_Cov(i,i) = 1; // Diagonal Matrix for C-Matrix
   Gaussian measurement_Uncertainty_Cluster(measNoiseCluster_Mu, measNoiseCluster_Cov);
-  Matrix Hcluster(3,3);  Hcluster = 0;
-  Hcluster(1,1) = 1;    Hcluster(2,2) = 1; Hcluster(3,3) = 1;
-  cluster_meas_pdf_   = new LinearAnalyticConditionalGaussian(Hcluster, measurement_Uncertainty_Cluster);
-  cluster_meas_model_ = new LinearAnalyticMeasurementModelGaussianUncertainty(cluster_meas_pdf_);
 
+  cluster_meas_pdf_   = new LinearAnalyticConditionalGaussian(C, measurement_Uncertainty_Cluster);
+  cluster_meas_model_ = new LinearAnalyticMeasurementModelGaussianUncertainty(cluster_meas_pdf_);
 
   logger_->log_info("ObjectEstimator", "created Sytem and Cluster Model");
 
@@ -71,28 +101,26 @@ ObjectEstimator::~ObjectEstimator()
 {
   if (filter_) delete filter_;
   if (prior_)  delete prior_;
-  // delete odom_meas_model_;
-  // delete odom_meas_pdf_;
-  // delete cluster_meas_model_;
-  // delete cluster_meas_pdf_;
-  // delete sys_pdf_;
-  // delete sys_model_;
 }
 
 void
 ObjectEstimator::initialize(const fawkes::tf::Transform& prior, const Time& time)
 {
 
-  // set prior of filter
-  ColumnVector prior_Mu(3);
+  // set prior (first guess) of filter
+  ColumnVector prior_Mu(6);
   prior_Mu(1) = prior.getOrigin().getX();
   prior_Mu(2)=prior.getOrigin().getY();
   prior_Mu(3)=prior.getOrigin().getZ();
-  SymmetricMatrix prior_Cov(3);
-  for (unsigned int i=1; i<=3; i++) {
-    for (unsigned int j=1; j<=3; j++){
-  if (i==j)  prior_Cov(i,j) = pow(0.001,2);
-  else prior_Cov(i,j) = 0;
+  prior_Mu(4)= 0;
+  prior_Mu(5)= 0;
+  prior_Mu(6)= 0;
+
+  SymmetricMatrix prior_Cov(6);
+  for (unsigned int i=1; i<=6; i++) {
+    for (unsigned int j=1; j<=6; j++){
+    	if (i==j)  prior_Cov(i,j) = pow(0.001,2);			// low Covariance states that we are very confident, that the obstacle is at that position
+    	else prior_Cov(i,j) = 0;
     }
   }
   prior_  = new Gaussian(prior_Mu,prior_Cov);
@@ -102,7 +130,6 @@ ObjectEstimator::initialize(const fawkes::tf::Transform& prior, const Time& time
   filter_ = new ExtendedKalmanFilter(prior_);
 
   logger_->log_info("ObjectEstimator", "Created Filter");
-
 
   // remember prior
   fawkes::Time now(clock_);
@@ -123,21 +150,10 @@ ObjectEstimator::update(const Time&  filter_time, const fawkes::tf::StampedTrans
 
 		// get Time-diff since last update
 		double dt = filter_time.in_sec() - filter_time_old_.in_sec();
-		logger_->log_error("ObjectTracker", "Time diff %f", dt);
-		// only update filter when it is initialized
+		logger_->log_info("ObjectTracker", "Time diff %f", dt);
 
-		// only update filter for time later than current filter time
-
-		// system update filter
-		// --------------------
-		// for now only add system noise
-		ColumnVector input(3); input = 0;
-
-		logger_->log_info("ObjectEstimator", "Updated Filter with sysmodel and 0,0,0");
-
-
-		// process cluster measurement
-		// ------------------------
+		ColumnVector input(6);
+		input = 0;
 
 		//odom_rel = get_odom()
 		ColumnVector cluster_rel(3);
@@ -145,27 +161,32 @@ ObjectEstimator::update(const Time&  filter_time, const fawkes::tf::StampedTrans
 		cluster_rel(2) = meas.getOrigin().getY();
 		cluster_rel(3) = meas.getOrigin().getZ();
 
-	    //  CRASHER HIER !!!
-	    //  update filter
-	    // filter_->Update(sys_model_, input, cluster_meas_model_, cluster_rel);
-	    filter_->Update(sys_model_, cluster_meas_model_, cluster_rel);
+
+		logger_->log_info("ObjectEstimator", "Update Filter");
+
+
+		filter_->Update(sys_model_, input, cluster_meas_model_, cluster_rel);
+
 
 		logger_->log_info("ObjectEstimator", "Ask for Estimate and Covariance after Update");
 
 		// LOG
 		ColumnVector estimate = filter_->PostGet()->ExpectedValueGet();
-		double prob = filter_->PostGet()->ProbabilityGet(input).getValue();
-
 		SymmetricMatrix covariance = filter_->PostGet()->CovarianceGet();
-		logger_->log_info("ObjectEstimator", "Updates Filter with Cluster: %f %f ", meas.getOrigin().getX(), meas.getOrigin().getY());
-		logger_->log_info("ObjectEstimator", "Posterior Mean: %f %f", estimate(1), estimate(2));
-		logger_->log_info("ObjectEstimator", "Covariance: %f %f", covariance(1,1), covariance(1,2));
-		logger_->log_info("ObjectEstimator", "Covariance: %f %f", covariance(2,1), covariance(2,2));
-		logger_->log_info("ObjectEstimator", "Probability: %f", prob);
+		//double prob = filter_->PostGet()->ProbabilityGet(input).getValue();
+
+		logger_->log_info("ObjectEstimator", "Filter Accuracy:");
+		logger_->log_info("ObjectEstimator", "Measurement:    %f %f %f", meas.getOrigin().getX(), meas.getOrigin().getY(), meas.getOrigin().getZ());
+		logger_->log_info("ObjectEstimator", "Posterior Mean: %f %f %f", estimate(1), estimate(2), estimate(3));
+		logger_->log_info("ObjectEstimator", "Estimate size: %f %f %f", estimate(4), estimate(5), estimate(6) );
+		logger_->log_info("ObjectEstimator", "Covariance: %f %f %f", covariance(1,1), covariance(1,2), covariance(1,3));
+		logger_->log_info("ObjectEstimator", "Covariance: %f %f %f", covariance(2,1), covariance(2,2), covariance(2,3));
+		logger_->log_info("ObjectEstimator", "Covariance: %f %f %f", covariance(3,1), covariance(3,2), covariance(3,3));
+		//logger_->log_info("ObjectEstimator", "Probability: %f", prob);
 
 		// remember values
 		cluster_meas_old_ = cluster_meas_;
-		filter_estimate_old_vec_ = filter_->PostGet()->ExpectedValueGet();
+		filter_estimate_old_vec_ = estimate;
 		filter_time_old_ = filter_time;
 
 	}

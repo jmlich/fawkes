@@ -54,29 +54,41 @@ class Transform;
  * Process model:
  * X_k = A X + B U + W
  *
- *       |1  0  0 dt 0   0|
- *   A = |0  1  0  0 dt  0|
- *       |0  0  1  0  0 dt|
- *       |0  0  0  1  0  0|
- *       |0  0  0  0  1  0|
- *       |0  0  0  0  0  1|
+ *              A          *  X  +    B     * U   * E_x
  *
- *        |0,5*pow(dt,2)  0 0|
- *    U = |0  0,5*pow(dt,2) 0|
- *        |0  0 0,5*pow(dt,2)|
+ *       |1  0  0 dt 0   0|  |x |  |dt*dt/2|
+ *   x = |0  1  0  0 dt  0|  |y |  |dt*dt/2|
+ *       |0  0  1  0  0 dt|* |z |+ |dt*dt/2|* U
+ *       |0  0  0  1  0  0|  |dx|  |  dt   |
+ *       |0  0  0  0  1  0|  |dy|  |  dt   |
+ *       |0  0  0  0  0  1|  |dz|  |  dt   |
+ *
  *
  * x_k = x_{k-1} + dt * vx_{k-1} + 1/2 * pow(dt,2) ax_{k-1}
  *
  * W_K = process_noise ~ N(0,Q_k) with Q_k = Covariance Matrix
  *
+ *       |dt_pow_4/4       0           0      dt_pow_3/2          0              0     |
+ *       |     0      dt_pow_4/4       0           0         dt_pow_3/2          0     |
+ * E_x = |     0           0      dt_pow_4/4       0              0         dt_pow_3/2 |
+ *       |dt_pow_3/3       0           0      dt_pow_2            0              0     |
+ *       |     0      dt_pow_3/3       0           0         dt_pow_2            0     |
+ *       |     0           0      dt_pow_3/3       0              0         dt_pow_2   |
+ *
  * Measurement model:
  * Z_k = H * X_k + V_k
  *
- *       |1 0 0|
- * Z_k = |0 1 0| * X_k + V_k
- *       |0 0 1|
+ *       |1 0 0 0 0 0|
+ * Z_k = |0 1 0 0 0 0| * X_k + V_k
+ *       |0 0 1 0 0 0|
  *
  * V_k = observation_noise ~ N(0,R_K) with R_k = Covariance Matrix
+ *
+ *       |Sigma_x_pow2       0           0      |
+ * E_z = |0            Sigma_y_pow2      0      |
+ *       |0                  0      Sigma_z_pow2|
+ *
+ *
  *
  **************** Kalman Procedure ****************************************************
  *
