@@ -35,6 +35,7 @@
 
 #include <interfaces/Position3DInterface.h>
 #include <interfaces/Velocity3DInterface.h>
+#include <interfaces/MotorInterface.h>
 
 
 #include <bfl/filter/extendedkalmanfilter.h>
@@ -52,6 +53,7 @@
 namespace fawkes {
   class Position3DInterface;
   class Velocity3DInterface;
+  class MotorInterface;
   class Time;
 }
 
@@ -84,6 +86,11 @@ class ObstacleTrackerKalmanThread
   int  												cfg_min_vishistory_;
   fawkes::LockList<fawkes::Position3DInterface *>  	cluster_ifs_;
   ObjectEstimator*									filter_;
+  fawkes::MotorInterface*							odom_if_;
+
+  std::string reference_frame_id_;
+  std::string measurement_frame_id_;
+  std::string object_frame_id_prefix_;
 
 };
 

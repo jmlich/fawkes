@@ -24,9 +24,13 @@
 #define __KALMAN_FILTER_H_
 
 #include <utils/time/clock.h>
-#include <tf/transformer.h>
 #include <string>
- #include <logging/logger.h>
+#include <queue>
+#include <vector>
+#include <logging/logger.h>
+#include <config/config.h>
+#include <tf/transformer.h>
+#include <tf/types.h>
 
 // BFL-specific includes
 #include <bfl/filter/extendedkalmanfilter.h>
@@ -35,6 +39,7 @@
 #include <bfl/pdf/analyticconditionalgaussian.h>
 #include <bfl/pdf/linearanalyticconditionalgaussian.h>
 #include <bfl/wrappers/matrix/matrix_wrapper.h>
+#include <interfaces/MotorInterface.h>
 
 namespace fawkes{
 class Logger;
@@ -56,39 +61,25 @@ class Transform;
  *
  *              A          *  X  +    B     * U   * E_x
  *
- *       |1  0  0 dt 0   0|  |x |  |dt*dt/2|
- *   x = |0  1  0  0 dt  0|  |y |  |dt*dt/2|
- *       |0  0  1  0  0 dt|* |z |+ |dt*dt/2|* U
- *       |0  0  0  1  0  0|  |dx|  |  dt   |
- *       |0  0  0  0  1  0|  |dy|  |  dt   |
- *       |0  0  0  0  0  1|  |dz|  |  dt   |
+ *       |1  0  1  0|  |x |  |0|
+ *   x = |0  1  0  1|  |y |  |0|
+ *       |0  0  1  0|  |dx|+ |0|* U
+ *       |0  0  0  1|  |dy|  |0|
  *
  *
  * x_k = x_{k-1} + dt * vx_{k-1} + 1/2 * pow(dt,2) ax_{k-1}
  *
  * W_K = process_noise ~ N(0,Q_k) with Q_k = Covariance Matrix
  *
- *       |dt_pow_4/4       0           0      dt_pow_3/2          0              0     |
- *       |     0      dt_pow_4/4       0           0         dt_pow_3/2          0     |
- * E_x = |     0           0      dt_pow_4/4       0              0         dt_pow_3/2 |
- *       |dt_pow_3/3       0           0      dt_pow_2            0              0     |
- *       |     0      dt_pow_3/3       0           0         dt_pow_2            0     |
- *       |     0           0      dt_pow_3/3       0              0         dt_pow_2   |
  *
  * Measurement model:
  * Z_k = H * X_k + V_k
  *
- *       |1 0 0 0 0 0|
- * Z_k = |0 1 0 0 0 0| * X_k + V_k
- *       |0 0 1 0 0 0|
+ *       |1 0 0 0|
+ * Z_k = |0 1 0 0| * X_k + V_k
+ *
  *
  * V_k = observation_noise ~ N(0,R_K) with R_k = Covariance Matrix
- *
- *       |Sigma_x_pow2       0           0      |
- * E_z = |0            Sigma_y_pow2      0      |
- *       |0                  0      Sigma_z_pow2|
- *
- *
  *
  **************** Kalman Procedure ****************************************************
  *
@@ -117,18 +108,22 @@ class Transform;
 
 class ObjectEstimator
 {
- private:
 
  public:
   ~ObjectEstimator();
-  ObjectEstimator(fawkes::Logger* logger, fawkes::Clock* clock, std::string frame_id, std::string child_frame_id);
+  ObjectEstimator(fawkes::Logger* logger, fawkes::Clock* clock, fawkes::Configuration* config, fawkes::tf::Transformer* tf_transformer, fawkes::MotorInterface* odom_if);
 
-  void initialize(const fawkes::tf::Transform& prior, const fawkes::Time& time);
-  void update(const fawkes::Time& filter_time, const fawkes::tf::StampedTransform& meas);
-  fawkes::tf::Transform getEstimate(fawkes::Time time);
+  void initialize(const fawkes::tf::Stamped<fawkes::tf::Point> point);
+  void add_measurement(const fawkes::tf::Stamped<fawkes::tf::Point> point);
+  void update(const fawkes::tf::Stamped<fawkes::tf::Point> point);
+  void reset(const fawkes::tf::Stamped<fawkes::tf::Point> prior);
+  //fawkes::tf::Stamped<fawkes::tf::Point> getEstimate(fawkes::Time time);
+  void getEstimate(fawkes::Time time);
 
 
  private:
+
+  std::queue<fawkes::tf::Stamped<fawkes::tf::Point>> measurement_queue_;
 
   // pdf / model / filter
   BFL::AnalyticSystemModelGaussianUncertainty*            sys_model_;
@@ -141,21 +136,34 @@ class ObjectEstimator
 
   // vars
   MatrixWrapper::ColumnVector vel_desi_, filter_estimate_old_vec_;
-  fawkes::tf::Transform filter_estimate_old_;
-  fawkes::tf::StampedTransform cluster_meas_, cluster_meas_old_;
+  fawkes::tf::Stamped<fawkes::tf::Point> filter_estimate_old_;
+  fawkes::tf::Stamped<fawkes::tf::Point> cluster_meas_, cluster_meas_old_;
   fawkes::Time filter_time_old_;
 
   // tf transformer
-  fawkes::tf::Transformer transformer_;
-  fawkes::tf::StampedTransform transform_;
+  fawkes::tf::Transformer* transformer_;
 
-  std::string frame_id_;
-  std::string child_frame_id_;
+  fawkes::MotorInterface* odom_if_;
+
+  std::string reference_frame_id_;
+  std::string measurement_frame_id_;
 
   fawkes::Logger* logger_;
   fawkes::Clock* clock_;
 
+  float old_odom_x_;
+  float old_odom_y_;
+  float old_odom_phi_;
+
+//  float sysNoise_Mu_;
+//  float sysNoise_Cov_;
+//  float measNoise_Mu_;
+//  float measNoise_Cov_;
+
+
   bool filter_initialized_=false;
+
+
 
 };
 

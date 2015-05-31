@@ -36,7 +36,7 @@ using namespace MatrixWrapper;
 /** Constructor. */
 ObstacleTrackerKalmanThread::ObstacleTrackerKalmanThread()
   : Thread("ObstacleTrackerKalmanThread", Thread::OPMODE_WAITFORWAKEUP),
-    BlockedTimingAspect(BlockedTimingAspect::WAKEUP_HOOK_ACT)
+    BlockedTimingAspect(BlockedTimingAspect::WAKEUP_HOOK_POST_LOOP)
 {
 }
 
@@ -50,13 +50,19 @@ ObstacleTrackerKalmanThread::init()
 {
 
   /************ GET CONFIGS *******************************************************/
-  cfg_laser_cluster_iface_prefix_    = config->get_string("/obstacle-tracker/laser-cluster-interface-prefix");
+  std::string cfg_prefix = "/obstacle-tracker/";
+  measurement_frame_id_ = config->get_string((cfg_prefix + "frame/measurement-frame-id").c_str());
+  reference_frame_id_ = config->get_string((cfg_prefix + "frame/reference-frame-id").c_str());
+  object_frame_id_prefix_ = config->get_string((cfg_prefix + "frame/object-frame-id-prefix").c_str());
 
-  cfg_min_vishistory_  = config->get_int("/obstacle-tracker/min-visibility-history");
+  cfg_laser_cluster_iface_prefix_ = config->get_string((cfg_prefix + "laser-cluster-interface-prefix").c_str());
+  cfg_min_vishistory_ = config->get_int((cfg_prefix + "min-visibility-history").c_str());
+  std::string cfg_odom_if_id = config->get_string((cfg_prefix + "odom-interface").c_str());
 
   /************ OPEN INTERFACES *******************************************************/
   std::string pattern = cfg_laser_cluster_iface_prefix_ + "*";
   cluster_ifs_ = blackboard->open_multiple_for_reading<Position3DInterface>(pattern.c_str());
+  odom_if_ = blackboard->open_for_reading<MotorInterface>( cfg_odom_if_id.c_str() );
 
   /************ CREATE FILTER FOR EVERY INTERFACE *************************************/
   unsigned int i = 0;
@@ -64,7 +70,7 @@ ObstacleTrackerKalmanThread::init()
 	  i++;
 	  if(i==1) {
 		  logger->log_info(name(),"Create Filter for Interface %s", interface->id());
-		  filter_ = new ObjectEstimator(logger, clock, "odom", "tracked_object_1");
+		  filter_ = new ObjectEstimator(logger, clock, config, tf_listener, odom_if_);
 	  }
   }
 }
@@ -91,25 +97,21 @@ void
 ObstacleTrackerKalmanThread::once()
 {
 
-  int i =0;
+  unsigned int i =0;
   for( auto& interface : cluster_ifs_){
 
 	  interface->read();
 
 	  if (i == 0) {
 
+		  logger->log_info(name(),"Initialize Filter for Interface %s", interface->id());
 		 // INITIALIZATION OF FILTER -> GOES INTO LOOP LATER ON
 
-		  // create stamped-transform from Quaternion and Euler Vektor at current time from Interface
-		  tf::Quaternion q(interface->rotation(0),interface->rotation(1),
-							interface->rotation(2),interface->rotation(3));
-		  tf::Vector3 vtrans(interface->translation(0), interface->translation(1), interface->translation(2));
-		  fawkes::tf::StampedTransform cluster_transform_stamped;
+		  tf::Point cluster_as_point(interface->translation(0), interface->translation(1), interface->translation(2));
+		  const fawkes::Time cluster_time = interface->timestamp();
+		  tf::Stamped<tf::Point> stamped_cluster_point(cluster_as_point, cluster_time, measurement_frame_id_);
 
-		  fawkes::Time now(clock);
-		  cluster_transform_stamped = fawkes::tf::StampedTransform(fawkes::tf::Transform(q,vtrans), now, "odom", "tracked_object_1");
-
-		  filter_->initialize(cluster_transform_stamped, now);
+		  filter_->initialize(stamped_cluster_point);
 		  i++;
 	  }
   }
@@ -138,18 +140,11 @@ ObstacleTrackerKalmanThread::loop()
 
 	  if (i == 0) {
 
+		  tf::Point cluster_as_point(interface->translation(0), interface->translation(1), interface->translation(2));
+		  const fawkes::Time cluster_time = interface->timestamp();
+		  tf::Stamped<tf::Point> stamped_cluster_point(cluster_as_point, cluster_time, measurement_frame_id_);
 
-		  // create stamped-transform from Quaternion and Euler Vektor at current time from Interface
-		  tf::Quaternion q(interface->rotation(0),interface->rotation(1),
-				            interface->rotation(2),interface->rotation(3));
-		  tf::Vector3 vtrans(interface->translation(0), interface->translation(1), interface->translation(2));
-		  fawkes::tf::StampedTransform cluster_transform_stamped;
-
-		  fawkes::Time now(clock);
-		  cluster_transform_stamped = fawkes::tf::StampedTransform(fawkes::tf::Transform(q,vtrans), now, "odom", "tracked_object_1");
-
-		  fawkes::Time now_l(clock);
-		  filter_->update(now_l,cluster_transform_stamped);
+		  filter_->update(stamped_cluster_point);
 
 	  }
 
