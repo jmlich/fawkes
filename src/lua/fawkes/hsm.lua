@@ -63,6 +63,96 @@ function HSM:new_state()
    error("Only jump states can be created for a HSM")
 end
 
+--- Define states and transitions of this HSM.
+--
+-- Example:
+-- <code>
+-- local hsm = HSM:new{name="Example", start="MY_START"}
+-- hsm:define_hsm{
+--   export_to=_G,
+--   closure={my_var="closure demo"},
+
+--   {"START", JumpState,
+--      to={{"STATE_0", cond="some condition"},
+--          {"STATE_1", cond="some other condition"},
+--          {"FAILED",  cond=true, desc="some problem"}} },
+--
+--   {"STATE_0", JumpState},
+--
+--   {"STATE_1", SkillJumpState, skills={{"xyz"}},
+--      to={{"FINAL", cond="skills_final"},
+--          {"FAILED", cond="skills_fail"}} }
+-- }
+-- </code>
+function HSM:define(hsm)
+   -- prepare table for :define_states()
+   printf("prepare table for :define_states")
+   local export_to = hsm.export_to
+   local closure   = hsm.closure
+   local states    = {}
+
+   -- prepare table for :add_transitions()
+   local transitions = {}
+
+   for hsm_key,node in pairs(hsm) do
+      -- filter known keywords
+      if hsm_key~="closure" and hsm_key~="export_to" then
+         -- this is a node containing the state, its transition, etc.
+
+         -- add content for :define_states()
+         local name, class = node[1], node[2]
+         local state = {name, class}
+         --printf("++0.0 state "..tostring(name))
+         if node.skills then
+            --printf("++1.0 skills")
+            state.skills = node.skills
+         end
+
+         -- process transitions
+         if node.to then
+            for _,trans in ipairs(node.to) do
+               assert(type(trans)=="table", "Transition is not a table!")
+
+               --TODO: need some function that we can check against, for final/fail transitions
+               --      of a SkillJumpState. Check against a known string for now, just for testing
+               local cond = trans.cond or trans.precond or trans.cond_and_precond
+               if cond == "skills_final" then
+                  -- content for :define_states()
+                  --printf("++2.1 state "..tostring(name).." final_to "..trans[1])
+                  state.final_to = trans[1]
+               elseif cond == "skills_fail" then
+                  -- content for :define_states()
+                  --printf("++2.1 state "..tostring(name).." fail_to "..trans[1])
+                  state.fail_to = trans[1]
+               else
+                  -- content for :add_transitions()
+                  --printf("++2.0 state "..tostring(name).." transition to "..trans[1])
+                  -- copy whole transition
+                  local t = {}
+                  for a,b in pairs(trans) do
+                     t[a] = b
+                  end
+                  -- insert from-state to first position
+                  table.insert(t, 1, name)
+                  -- add transition to transitions table
+                  table.insert(transitions, t)
+               end
+            end
+         end
+
+         -- add this state to states table
+         table.insert(states, state)
+      end
+   end
+
+   -- create the states
+   self:define_states(states)
+
+   -- add transitions
+   self:add_transitions(transitions)
+end
+
+
 --- Define states of this HSM.
 -- This method takes a table describing the states that this state machines
 -- shall have.
