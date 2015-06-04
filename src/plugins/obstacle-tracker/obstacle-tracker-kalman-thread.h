@@ -33,22 +33,22 @@
 #include <aspect/tf.h>
 #include <vector>
 
+#include <tf/transformer.h>
+
 #include <interfaces/Position3DInterface.h>
 #include <interfaces/Velocity3DInterface.h>
 #include <interfaces/MotorInterface.h>
 
-
 #include <bfl/filter/extendedkalmanfilter.h>
-
 #include <bfl/model/linearanalyticsystemmodel_gaussianuncertainty.h>
 #include <bfl/model/linearanalyticmeasurementmodel_gaussianuncertainty.h>
-
 #include <bfl/pdf/analyticconditionalgaussian.h>
 #include <bfl/pdf/linearanalyticconditionalgaussian.h>
-
 #include <bfl/wrappers/matrix/matrix_wrapper.h>
 
 #include "object-estimator.h"
+
+class ObstacleTrackerVisualizationThread;
 
 namespace fawkes {
   class Position3DInterface;
@@ -71,6 +71,7 @@ class ObstacleTrackerKalmanThread
 
  public:
   ObstacleTrackerKalmanThread();
+  ObstacleTrackerKalmanThread(ObstacleTrackerVisualizationThread *vt);
   virtual ~ObstacleTrackerKalmanThread();
 
   /** Stub to see name in backtrace for easier debugging. @see Thread::run() */
@@ -80,10 +81,12 @@ class ObstacleTrackerKalmanThread
   virtual void once();
   virtual void loop();
   virtual void finalize();
+  void publish_visualization();
 
  private:
   std::string  										cfg_laser_cluster_iface_prefix_;
   int  												cfg_min_vishistory_;
+  bool												cfg_visualization_;
   fawkes::LockList<fawkes::Position3DInterface *>  	cluster_ifs_;
   ObjectEstimator*									filter_;
   fawkes::MotorInterface*							odom_if_;
@@ -91,6 +94,12 @@ class ObstacleTrackerKalmanThread
   std::string reference_frame_id_;
   std::string measurement_frame_id_;
   std::string object_frame_id_prefix_;
+
+
+  std::vector<fawkes::tf::Stamped<fawkes::tf::Point>> measurements_;
+  std::vector<fawkes::tf::Stamped<fawkes::tf::Point>> objects_;
+
+  ObstacleTrackerVisualizationThread *vt_;
 
 };
 

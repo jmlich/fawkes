@@ -21,6 +21,7 @@
 
 #include "obstacle-tracker-kalman-thread.h"
 #include "object-estimator.h"
+#include "visualization_thread.h"
 
 #include <tf/utils.h>
 #include <cmath>
@@ -35,9 +36,19 @@ using namespace MatrixWrapper;
 
 /** Constructor. */
 ObstacleTrackerKalmanThread::ObstacleTrackerKalmanThread()
-  : Thread("ObstacleTrackerKalmanThread", Thread::OPMODE_WAITFORWAKEUP),
-    BlockedTimingAspect(BlockedTimingAspect::WAKEUP_HOOK_POST_LOOP)
+: Thread("ObstacleTrackerKalmanThread", Thread::OPMODE_WAITFORWAKEUP),
+  BlockedTimingAspect(BlockedTimingAspect::WAKEUP_HOOK_SENSOR_PROCESS)
 {
+   vt_ = NULL;
+}
+
+
+/** Constructor. */
+ObstacleTrackerKalmanThread::ObstacleTrackerKalmanThread(ObstacleTrackerVisualizationThread *vt)
+: Thread("ObstacleTrackerKalmanThread", Thread::OPMODE_WAITFORWAKEUP),
+  BlockedTimingAspect(BlockedTimingAspect::WAKEUP_HOOK_POST_LOOP)
+{
+  vt_ = vt;
 }
 
 /** Destructor. */
@@ -73,6 +84,18 @@ ObstacleTrackerKalmanThread::init()
 		  filter_ = new ObjectEstimator(logger, clock, config, tf_listener, odom_if_);
 	  }
   }
+
+  cfg_visualization_ = false;
+  try {
+    cfg_visualization_ = config->get_bool(cfg_prefix + "visualization/enable");
+  } catch (Exception &e) {} // ignore, use default
+
+  if (cfg_visualization_) {
+    logger->log_info(name(), "Visualization enabled");
+  }
+  else {
+    logger->log_info(name(), "Visualization disabled");
+  }
 }
 
 
@@ -82,7 +105,10 @@ ObstacleTrackerKalmanThread::finalize()
 
   // clear list of interfaces
   cluster_ifs_.clear();
-  delete filter_;
+  objects_.clear();
+  measurements_.clear();
+
+  if(filter_) delete filter_;
 
 }
 
@@ -115,7 +141,6 @@ ObstacleTrackerKalmanThread::once()
 		  i++;
 	  }
   }
-
 }
 
 /*
@@ -133,10 +158,15 @@ ObstacleTrackerKalmanThread::loop()
 
   /* get measurements and add measurements to filter */
 
+  measurements_.clear();
+  objects_.clear();
+
+
   unsigned int i=0;
   for( auto& interface : cluster_ifs_){
 
 	  interface->read();
+
 
 	  if (i == 0) {
 
@@ -144,12 +174,88 @@ ObstacleTrackerKalmanThread::loop()
 		  const fawkes::Time cluster_time = interface->timestamp();
 		  tf::Stamped<tf::Point> stamped_cluster_point(cluster_as_point, cluster_time, measurement_frame_id_);
 
+		  /*
+		   * Measurement is pushed into vector - has to be assigned to fliter later on
+		   */
+		  measurements_.push_back(stamped_cluster_point);
+
+		  /*
+		   *
+		   * following update has to be moved down !
+		   *
+		   */
 		  filter_->update(stamped_cluster_point);
 
+		  tf::Stamped<tf::Point> positionEstimate = filter_->getPositionEstimate(fawkes::Time(clock));
+		  objects_.push_back( positionEstimate );
+
+		  logger->log_info(name(), "measurement: %f %f - object estimate: %f %f", stamped_cluster_point.getX(),stamped_cluster_point.getY(), positionEstimate.getX(), positionEstimate.getY());
 	  }
-
-	  // update if value changes since last loop
 	  i++;
-
   }// end for
-}// end loop
+
+  // find corresponding filter for measurement
+  // Hungarian-Method
+
+  // update filter with current measurements
+
+  // get estimate for current position from filter
+
+  // write estimate into Velocity3DInterface
+
+  /*
+   * visualize
+   */
+  if (cfg_visualization_){
+
+	  publish_visualization();
+  }
+
+}// end loop()
+
+
+void
+ObstacleTrackerKalmanThread::publish_visualization()
+{
+  if (vt_) {
+
+	std::vector<tf::Point> meas;
+	std::vector<tf::Point> objs;
+
+	// unpack points of stamped measurements
+	for( fawkes::tf::Stamped<fawkes::tf::Point> &m : measurements_){
+
+		fawkes::tf::Stamped<tf::Point> trans_m;
+
+		// try to transform measurement into reference-frame
+		try{
+			tf_listener->transform_point(reference_frame_id_, m, trans_m);
+		}
+		catch(Exception &e){
+			// try to transform measurement at timestamp 0,0
+			m.stamp = fawkes::Time(0,0);
+			try{
+				tf_listener->transform_point(reference_frame_id_, m, trans_m);
+			}
+			catch(Exception &e){
+			    //logger->log_warn(name(), "Transform of measurement at clock(0,0) didn't work - will take raw-measurement ");
+			}
+		}
+
+		// cast transform into point
+		fawkes::tf::Point transformed_point(trans_m.getX(),trans_m.getY(),trans_m.getZ());
+		meas.push_back(transformed_point);
+
+	}
+
+	// unpack points of stamped objects
+	for( fawkes::tf::Stamped<fawkes::tf::Point> &o : objects_){
+		fawkes::tf::Point transformed_point(o.getX(),o.getY(),o.getZ());
+		objs.push_back(transformed_point);
+	}
+    vt_->publish(meas, objs);
+  }
+  else{
+	   logger->log_warn(name(),"VisualizationThread 'vt' is NULL - something went wrong !");
+  }
+}
