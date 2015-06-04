@@ -37,9 +37,6 @@ ObjectEstimator::ObjectEstimator(fawkes::Logger* logger, fawkes::Clock* clock, f
   clock_ = clock;
   transformer_ = tf_transformer;
   odom_if_ = odom_if;
-  old_odom_x_ = 0;
-  old_odom_y_ = 0;
-  old_odom_phi_ = 0;
 
   // GET CONFIGS
   std::string cfg_prefix = "/obstacle-tracker/";
@@ -49,16 +46,6 @@ ObjectEstimator::ObjectEstimator(fawkes::Logger* logger, fawkes::Clock* clock, f
   double cfg_sysNoise_Cov = config->get_float((cfg_prefix + "kalman/sysNoise_Cov").c_str());
   double cfg_measNoise_Mu = config->get_float((cfg_prefix + "kalman/measNoise_Mu").c_str());
   double cfg_measNoise_Cov = config->get_float((cfg_prefix + "kalman/measNoise_Cov").c_str());
-
-  /*
-   * Awkward behavior - if following log is deleted, plugin crashes with:
-   * Check failed in file /usr/include/boost/numeric/ublas/detail/vector_assign.hpp at line 342:
-   *  detail::expression_type_check (v, cv)
-   *
-   */
-
-  logger_->log_info("ObjectEstimator", "Lalelu");
-
 
   /*
    * Create SYSTEM MODEL according to model defined in header
@@ -101,7 +88,7 @@ ObjectEstimator::ObjectEstimator(fawkes::Logger* logger, fawkes::Clock* clock, f
 
   //logger_->log_info("ObjectEstimator", "Cluster model done");
 
-  logger_->log_info("ObjectEstimator", "created Sytem and Cluster Model");
+  logger_->log_info("ObjectEstimator", "Created Sytem and Cluster Model");
   logger_->log_info("ObjectEstimator", "Config Values SysModel Mu=%f Cov=%f MeasModel Mu=%f Cov=%f", cfg_sysNoise_Mu, cfg_sysNoise_Cov, cfg_measNoise_Mu, cfg_measNoise_Cov);
 
 }
@@ -114,6 +101,10 @@ ObjectEstimator::~ObjectEstimator()
 {
   if (filter_) delete filter_;
   if (prior_)  delete prior_;
+  if(sys_model_) delete sys_model_;
+  if(sys_pdf_) delete sys_pdf_;
+  if(cluster_meas_pdf_) delete cluster_meas_pdf_;
+  if(cluster_meas_model_) delete cluster_meas_model_;
 }
 
 
@@ -174,8 +165,6 @@ ObjectEstimator::initialize(const fawkes::tf::Stamped<fawkes::tf::Point> prior)
   filter_time_old_ = now;
 
 
-
-
   filter_initialized_=true;
 
 }
@@ -201,6 +190,7 @@ ObjectEstimator::reset(const fawkes::tf::Stamped<fawkes::tf::Point> prior){
 		}
 		catch(Exception &e){
 			  logger_->log_warn("ObjectEstimator", "Looping till transform in %s is ready", reference_frame_id_.c_str());
+			  logger_->log_warn("ObjectEstimator", e);
 		}
 	}
     logger_->log_info("ObjectEstimator", "Transform of PRIOR is ready: %f %f", transformed_prior.getX(), transformed_prior.getY());
@@ -228,9 +218,7 @@ ObjectEstimator::reset(const fawkes::tf::Stamped<fawkes::tf::Point> prior){
 	// clear measurement queue
 	measurement_queue_ = {};
 
-
     logger_->log_info("ObjectEstimator", "Filter reseted !!!!!!!!!!!!!!!!");
-
 
 }
 
@@ -279,8 +267,8 @@ ObjectEstimator::update(const fawkes::tf::Stamped<fawkes::tf::Point> meas){
 				// measurement is added - delete from queue
 				measurement_queue_.pop();
 
-			    logger_->log_info("ObjectEstimator", "Transform of measurement is ready: %f %f", transformed_meas.getX(), transformed_meas.getY());
-				logger_->log_info("ObjectEstimator", "Add measurement. Current queue size is: %d", measurement_queue_.size() );
+//			    logger_->log_info("ObjectEstimator", "Transform of measurement is ready: %f %f", transformed_meas.getX(), transformed_meas.getY());
+//				logger_->log_info("ObjectEstimator", "Add measurement. Current queue size is: %d", measurement_queue_.size() );
 
 			}
 
@@ -291,15 +279,13 @@ ObjectEstimator::update(const fawkes::tf::Stamped<fawkes::tf::Point> meas){
 		}
 	}
 
-
 	/*
-	 *
+	 * TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 * Handle overflow of queue
 	 * If amcl is not loaded, the transform to \map will never be ready
 	 * catch this failure by unloading plugin or flushing the queue if max-size is exceeded
 	 *
 	 */
-
 }
 
 
@@ -315,16 +301,6 @@ ObjectEstimator::add_measurement(const fawkes::tf::Stamped<fawkes::tf::Point> tr
 
 	if(filter_initialized_){
 
-		// get Time-diff since last update
-		double dt = transformed_meas.stamp.in_sec() - filter_time_old_.in_sec();
-		logger_->log_info("ObjectTracker", "Time diff %f", dt);
-
-		// get fresh odometry data from interface
-		odom_if_->read();
-		ColumnVector odom_rel(2);
-		odom_rel(1) = odom_if_->odometry_position_x() - old_odom_x_;
-		odom_rel(2) = odom_if_->odometry_position_y() - old_odom_y_;
-
 		// safe cluster measurement in Column Vector
 		ColumnVector cluster_rel(2);
 		cluster_rel(1) =  transformed_meas.getX();
@@ -337,42 +313,22 @@ ObjectEstimator::add_measurement(const fawkes::tf::Stamped<fawkes::tf::Point> tr
 		cluster_meas_old_ = cluster_meas_;
 		filter_time_old_ = transformed_meas.stamp;
 
-		old_odom_x_ = odom_if_->odometry_position_x();
-		old_odom_y_ = odom_if_->odometry_position_y();
-		//old_odom_phi_ = odom_if_->odometry_orientation();
-
-		ColumnVector estimate = filter_->PostGet()->ExpectedValueGet();
-		SymmetricMatrix covariance = filter_->PostGet()->CovarianceGet();
-
-		logger_->log_info("ObjectEstimator", "Added measurement")
-				;
-		logger_->log_info("ObjectEstimator", "Odom     :                %f %f", odom_if_->odometry_position_x(), odom_if_->odometry_position_y());
-		logger_->log_info("ObjectEstimator", "Odom Diff:                %f %f", odom_rel(1), odom_rel(2));
-		logger_->log_info("ObjectEstimator", "Trans-Measurement Values: %f %f in %s" , transformed_meas.getX(), transformed_meas.getY(), transformed_meas.frame_id.c_str());
-		logger_->log_info("ObjectEstimator", "Posterior Position: %f %f", estimate(1), estimate(2));
-		logger_->log_info("ObjectEstimator", "Posterior Velocity: %f %f", estimate(3), estimate(4));
-		logger_->log_info("ObjectEstimator", "Covariance: %f %f %f %f", covariance(1,1), covariance(1,2), covariance(1,3), covariance(1,4));
-		logger_->log_info("ObjectEstimator", "Covariance: %f %f %f %f", covariance(2,1), covariance(2,2), covariance(2,3), covariance(2,4));
-		logger_->log_info("ObjectEstimator", "Covariance: %f %f %f %f", covariance(3,1), covariance(3,2), covariance(3,3), covariance(3,4));
-		logger_->log_info("ObjectEstimator", "Covariance: %f %f %f %f", covariance(4,1), covariance(4,2), covariance(4,3), covariance(4,4));
-
 	}
 }
-
 
 /* get estimate
  *
  * simulate filter for n timesteps
  *
  */
-//fawkes::tf::Stamped<fawkes::tf::Point>
-void
-ObjectEstimator::getEstimate(fawkes::Time time){
+fawkes::tf::Stamped<fawkes::tf::Point>
+ObjectEstimator::getPositionEstimate(fawkes::Time time){
 
 
 	// estimate position
 	ColumnVector estimate = filter_->PostGet()->ExpectedValueGet();
 	SymmetricMatrix covariance = filter_->PostGet()->CovarianceGet();
+
 	//double prob = filter_->PostGet()->ProbabilityGet(input).getValue();
 
 	//  LOGGING
@@ -383,12 +339,10 @@ ObjectEstimator::getEstimate(fawkes::Time time){
 	logger_->log_info("ObjectEstimator", "Covariance: %f %f %f %f", covariance(3,1), covariance(3,2), covariance(3,3), covariance(3,4));
 	logger_->log_info("ObjectEstimator", "Covariance: %f %f %f %f", covariance(4,1), covariance(4,2), covariance(4,3), covariance(4,4));
 
-//	fawkes::tf::Stamped<fawkes::tf::Point> estimated_point;
-//	estimated_point
+	fawkes::tf::Point estimate_as_point( estimate(1), estimate(2), 0.0 );
+	fawkes::tf::Stamped<fawkes::tf::Point> estimated_stamped_point(estimate_as_point, time, reference_frame_id_);
 
-	filter_estimate_old_vec_ = estimate;
-
-//	return estimated_point;
+	return estimated_stamped_point;
 
 }
 

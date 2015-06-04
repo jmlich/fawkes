@@ -117,8 +117,8 @@ class ObjectEstimator
   void add_measurement(const fawkes::tf::Stamped<fawkes::tf::Point> point);
   void update(const fawkes::tf::Stamped<fawkes::tf::Point> point);
   void reset(const fawkes::tf::Stamped<fawkes::tf::Point> prior);
-  //fawkes::tf::Stamped<fawkes::tf::Point> getEstimate(fawkes::Time time);
-  void getEstimate(fawkes::Time time);
+  fawkes::tf::Stamped<fawkes::tf::Point> getPositionEstimate(fawkes::Time time);
+  //void getEstimate(fawkes::Time time);
 
 
  private:
@@ -132,7 +132,6 @@ class ObjectEstimator
   BFL::LinearAnalyticMeasurementModelGaussianUncertainty* cluster_meas_model_;
   BFL::Gaussian*                                          prior_;
   BFL::ExtendedKalmanFilter*                              filter_;
-  MatrixWrapper::SymmetricMatrix                          odom_covariance_, cluster_covariance_;
 
   // vars
   MatrixWrapper::ColumnVector vel_desi_, filter_estimate_old_vec_;
