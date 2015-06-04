@@ -22,6 +22,7 @@
 
 #include <core/plugin.h>
 #include "obstacle-tracker-kalman-thread.h"
+#include "visualization_thread.h"
 
 using namespace fawkes;
 
@@ -37,7 +38,17 @@ class ObstacleTrackerKalmanPlugin : public fawkes::Plugin
   ObstacleTrackerKalmanPlugin(Configuration *config)
     : Plugin(config)
   {
-    thread_list.push_back(new ObstacleTrackerKalmanThread());
+	bool use_vis = false;
+	try {
+	      use_vis = config->get_bool("/obstacle-tracker/visualization/enable");
+	} catch (Exception &e) {} // ignored, use default
+	if (use_vis) {
+	  ObstacleTrackerVisualizationThread *vt = new ObstacleTrackerVisualizationThread();
+	  thread_list.push_back(new ObstacleTrackerKalmanThread(vt));
+	  thread_list.push_back(vt);
+	} else {
+	  thread_list.push_back(new ObstacleTrackerKalmanThread());
+	}
   }
 };
 
