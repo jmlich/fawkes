@@ -1,0 +1,7 @@
+%YAML 1.2
+%TAG ! tag:fawkesrobotics.org,cfg/
+
+plugins/interface_time_comp:
+  # two list of matching arguments, if_types contains the interface type and the same position in if_ids contains the interface id
+  if_types: [Laser360Interface]
+  if_ids:  [TiM55x-USB]
