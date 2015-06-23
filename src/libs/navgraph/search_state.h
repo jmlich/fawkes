@@ -38,11 +38,11 @@ namespace fawkes {
 class NavGraphSearchState : public fawkes::AStarState
 {
  public:
-  NavGraphSearchState(fawkes::NavGraphNode node, fawkes::NavGraphNode goal,
+  NavGraphSearchState(fawkes::NavGraphPath path, fawkes::NavGraphNode goal,
 		      fawkes::NavGraph *map_graph,
 		      fawkes::NavGraphConstraintRepo *constraint_repo = NULL);
 
-  NavGraphSearchState(fawkes::NavGraphNode node, fawkes::NavGraphNode goal,
+  NavGraphSearchState(fawkes::NavGraphPath path, fawkes::NavGraphNode goal,
 		      fawkes::NavGraph *map_graph,
 		      navgraph::EstimateFunction estimate_func,
 		      navgraph::CostFunction cost_func = NavGraphSearchState::euclidean_cost,
@@ -50,7 +50,7 @@ class NavGraphSearchState : public fawkes::AStarState
 
   ~NavGraphSearchState();
 
-  fawkes::NavGraphNode & node();
+  fawkes::NavGraphPath & path();
 
   virtual size_t key() { return key_; }
   virtual float  estimate();
@@ -63,11 +63,11 @@ class NavGraphSearchState : public fawkes::AStarState
    * @return cost from @p from to @p to.
    */
   static float
-  euclidean_cost(const fawkes::NavGraphNode &from,
+  euclidean_cost(const fawkes::NavGraphPath &from,
 		 const fawkes::NavGraphNode &to)
   {
-    return sqrtf(powf(to.x() - from.x(), 2) +
-		 powf(to.y() - from.y(), 2) );
+    return sqrtf(powf(to.x() - from.nodes().back().x(), 2) +
+        powf(to.y() - from.nodes().back().y(), 2) );
   }
 
   /** Determine straight line estimate between two nodes.
@@ -76,15 +76,15 @@ class NavGraphSearchState : public fawkes::AStarState
    * @return estimate of cost from @p node to @p goal.
    */
   static float
-  straight_line_estimate(const fawkes::NavGraphNode &node,
+  straight_line_estimate(const fawkes::NavGraphPath &path,
 			 const fawkes::NavGraphNode &goal)
   {
-    return sqrtf(powf(goal.x() - node.x(), 2) +
-		 powf(goal.y() - node.y(), 2) );
+    return sqrtf(powf(goal.x() - path.nodes().back().x(), 2) +
+        powf(goal.y() - path.nodes().back().y(), 2) );
   }
 
  private:
-  NavGraphSearchState(fawkes::NavGraphNode node, fawkes::NavGraphNode goal,
+  NavGraphSearchState(fawkes::NavGraphPath path, fawkes::NavGraphNode goal,
 		      double cost_sofar, NavGraphSearchState *parent_state,
 		      fawkes::NavGraph *map_graph,
 		      navgraph::EstimateFunction estimate_func,
@@ -95,7 +95,7 @@ class NavGraphSearchState : public fawkes::AStarState
   std::vector<AStarState *> children();
 
   // state information
-  fawkes::NavGraphNode  node_;
+  fawkes::NavGraphPath  path_;
 
   // goal information
   fawkes::NavGraphNode  goal_;

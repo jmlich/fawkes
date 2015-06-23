@@ -43,10 +43,10 @@ namespace navgraph {
 }
 #endif
   typedef
-  std::function<float (const fawkes::NavGraphNode &, const fawkes::NavGraphNode &)>
+  std::function<float (const fawkes::NavGraphPath &, const fawkes::NavGraphNode &)>
       EstimateFunction;
   typedef
-  std::function<float (const fawkes::NavGraphNode &, const fawkes::NavGraphNode &)>
+  std::function<float (const fawkes::NavGraphPath &, const fawkes::NavGraphNode &)>
       CostFunction;
 }
 
@@ -121,6 +121,16 @@ class NavGraph
 				   navgraph::CostFunction cost_func,
 				   bool use_constraints = true, bool compute_constraints = true);
 
+  fawkes::NavGraphPath search_path(const NavGraphPath &from,
+				   const NavGraphNode &to,
+				   bool use_constraints = true, bool compute_constraints = true);
+
+  fawkes::NavGraphPath search_path(const NavGraphPath &from,
+				   const NavGraphNode &to,
+				   navgraph::EstimateFunction estimate_func,
+				   navgraph::CostFunction cost_func,
+				   bool use_constraints = true, bool compute_constraints = true);
+
   void add_node(const NavGraphNode &node);
   void add_edge(const NavGraphEdge &edge);
   void remove_node(const NavGraphNode &node);
@@ -164,6 +174,7 @@ class NavGraph
   void unset_search_funcs();
 
   float cost(const NavGraphNode &from, const NavGraphNode &to) const;
+  float cost(const NavGraphPath &from, const NavGraphNode &to) const;
 
   static std::string format_name(const char *format, ...);
 

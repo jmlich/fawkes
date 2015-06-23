@@ -84,6 +84,7 @@ class NavGraphPath {
 
   const NavGraph &     graph() const;
   const NavGraphNode & goal() const;
+  const NavGraphNode & back() const;
 
   /** Get nodes along the path.
    * @return sequence of nodes that compose the path
@@ -96,6 +97,7 @@ class NavGraphPath {
   bool   empty() const;
   size_t size() const;
   void   clear();
+  std::string name();
 
   Traversal traversal() const;
 

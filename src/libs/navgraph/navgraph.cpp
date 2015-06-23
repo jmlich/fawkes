@@ -721,34 +721,6 @@ NavGraph::unset_search_funcs()
  * distance between nodes. The cost is the sum of costs of all edges
  * along the way from one node to another. The estimate is the straight line
  * distance from any given node to the goal node (which is provably admissible).
- * @param from node to search from
- * @param to goal node
- * @param use_constraints true to respect constraints imposed by the constraint
- * repository, false to ignore the repository searching as if there were no
- * constraints whatsoever.
- * @param compute_constraints if true re-compute constraints, otherwise use constraints
- * as-is, for example if they have been computed before to check for changes.
- * @return ordered vector of nodes which denote a path from @p from to @p to.
- * Note that the vector is empty if no path could be found (i.e. there is non
- * or it was prohibited when using constraints.
- */
-fawkes::NavGraphPath
-NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
-		      bool use_constraints, bool compute_constraints)
-{
-  return search_path(from, to,
-		     search_estimate_func_, search_cost_func_,
-		     use_constraints, compute_constraints);
-}
-
-/** Search for a path between two nodes with default distance costs.
- * This function executes an A* search to find an (optimal) path
- * from node @p from to node @p to.
- * By default (unless set otherwise, confirm using uses_default_search()),
- * the cost and estimated costs are calculated as the spatial euclidean
- * distance between nodes. The cost is the sum of costs of all edges
- * along the way from one node to another. The estimate is the straight line
- * distance from any given node to the goal node (which is provably admissible).
  * @param from name of node to search from
  * @param to name of the goal node
  * @param use_constraints true to respect constraints imposed by the constraint
@@ -799,8 +771,39 @@ NavGraph::search_path(const std::string &from, const std::string &to,
 		      bool use_constraints, bool compute_constraints)
 {
   NavGraphNode from_node(node(from));
+  std::vector<fawkes::NavGraphNode> nodes;
+  nodes.push_back(from_node);
+  NavGraphPath from_path(this, nodes);
   NavGraphNode to_node(node(to));
-  return search_path(from_node, to_node, estimate_func, cost_func,
+  return search_path(from_path, to_node, estimate_func, cost_func,
+		     use_constraints, compute_constraints);
+}
+
+/** Search for a path between two nodes with default distance costs.
+ * This function executes an A* search to find an (optimal) path
+ * from node @p from to node @p to.
+ * By default (unless set otherwise, confirm using uses_default_search()),
+ * the cost and estimated costs are calculated as the spatial euclidean
+ * distance between nodes. The cost is the sum of costs of all edges
+ * along the way from one node to another. The estimate is the straight line
+ * distance from any given node to the goal node (which is provably admissible).
+ * @param from name of node to search from
+ * @param to name of the goal node
+ * @param use_constraints true to respect constraints imposed by the constraint
+ * repository, false to ignore the repository searching as if there were no
+ * constraints whatsoever.
+ * @param compute_constraints if true re-compute constraints, otherwise use constraints
+ * as-is, for example if they have been computed before to check for changes.
+ * @return ordered vector of nodes which denote a path from @p from to @p to.
+ * Note that the vector is empty if no path could be found (i.e. there is non
+ * or it was prohibited when using constraints.
+ */
+fawkes::NavGraphPath
+NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
+		      bool use_constraints, bool compute_constraints)
+{
+  return search_path(from, to,
+		     search_estimate_func_, search_cost_func_,
 		     use_constraints, compute_constraints);
 }
 
@@ -833,6 +836,42 @@ NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
 		      navgraph::CostFunction cost_func,
 		      bool use_constraints, bool compute_constraints)
 {
+  std::vector<fawkes::NavGraphNode> nodes;
+  nodes.push_back(from);
+  NavGraphPath from_path(this, nodes);
+  return search_path(from_path, to, estimate_func, cost_func,
+		     use_constraints, compute_constraints);
+}
+
+/** Search for a path between two nodes.
+ * This function executes an A* search to find an (optimal) path
+ * from node @p from to node @p to.
+ * @param from path to search from
+ * @param to goal node
+ * @param estimate_func function to estimate the cost from any node to the goal.
+ * Note that the estimate function must be admissible for optimal A* search. That
+ * means that for no query may the calculated estimate be higher than the actual
+ * cost.
+ * @param cost_func function to calculate the cost from a node to another adjacent
+ * node. Note that the cost function is directly related to the estimate function.
+ * For example, the cost can be calculated in terms of distance between nodes, or in
+ * time that it takes to travel from one node to the other. The estimate function must
+ * match the cost function to be admissible.
+ * @param use_constraints true to respect constraints imposed by the constraint
+ * repository, false to ignore the repository searching as if there were no
+ * constraints whatsoever.
+ * @param compute_constraints if true re-compute constraints, otherwise use constraints
+ * as-is, for example if they have been computed before to check for changes.
+ * @return ordered vector of nodes which denote a path from @p from to @p to.
+ * Note that the vector is empty if no path could be found (i.e. there is non
+ * or it was prohibited when using constraints.
+ */
+fawkes::NavGraphPath
+NavGraph::search_path(const NavGraphPath &from, const NavGraphNode &to,
+		      navgraph::EstimateFunction estimate_func,
+		      navgraph::CostFunction cost_func,
+		      bool use_constraints, bool compute_constraints)
+{
   if (! reachability_calced_)  calc_reachability();
 
   AStar astar;
@@ -860,7 +899,7 @@ NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
   NavGraphSearchState *solstate;
   for (unsigned int i = 0; i < a_star_solution.size(); ++i ) {
     solstate = dynamic_cast<NavGraphSearchState *>(a_star_solution[i]);
-    path[i] = solstate->node();
+    path[i] = solstate->path().nodes().back();
   }
 
   float cost =
@@ -882,6 +921,23 @@ NavGraph::search_path(const NavGraphNode &from, const NavGraphNode &to,
  */
 float
 NavGraph::cost(const NavGraphNode &from, const NavGraphNode &to) const
+{
+  std::vector<fawkes::NavGraphNode> nodes;
+  nodes.push_back(from);
+  NavGraphPath path(this, nodes);
+  return search_cost_func_(path, to);
+}
+
+/** Calculate cost between two adjacent nodes.
+ * It is not verified whether the nodes are actually adjacent, but the cost
+ * function is simply applied. This is done to increase performance.
+ * The calculation will use the currently registered cost function.
+ * @param from path
+ * @param to second node
+ * @return cost from @p from to @p to
+ */
+float
+NavGraph::cost(const NavGraphPath &from, const NavGraphNode &to) const
 {
   return search_cost_func_(from, to);
 }

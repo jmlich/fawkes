@@ -173,6 +173,18 @@ NavGraphPath::clear()
   cost_ = -1;
 }
 
+/** Get name of path
+ * @return name of path
+ */
+std::string
+NavGraphPath::name()
+{
+  std::string ret;
+  for (auto node : nodes_)
+    ret += node.name();
+  return ret;
+}
+
 
 /** Check if the path contains a given node.
  * @param node node to check for in current path
@@ -187,7 +199,7 @@ NavGraphPath::contains(const NavGraphNode &node) const
 
 /** Get goal of path.
  * @return goal of this path, i.e. the last node in the sequence of nodes.
- * @throw Exeption if there are no nodes in this path
+ * @throw Exception if there are no nodes in this path
  */
 const NavGraphNode &
 NavGraphPath::goal() const
@@ -197,6 +209,20 @@ NavGraphPath::goal() const
   }
 
   return nodes_[nodes_.size() - 1];
+}
+
+/** Get last node of path.
+ * @return last node of this path
+ * @throw Exception of there are no nodes in this path
+ */
+const NavGraphNode &
+NavGraphPath::back() const
+{
+  if (nodes_.empty()) {
+    throw Exception("No nodes in plan, cannot retrieve last node");
+  }
+
+  return nodes_.back();
 }
 
 
@@ -395,7 +421,7 @@ NavGraphPath::Traversal::remaining_cost() const
 
   float cost = 0.;
   for (ssize_t i = current_; i < (ssize_t)path_->nodes_.size() - 1; ++i) {
-    cost += path_->graph_->cost(path_->nodes_[i], path_->nodes_[i+1]);
+    cost += path_->graph_->cost(*path_, path_->nodes_[i+1]);
   }
 
   return cost;
