@@ -58,7 +58,7 @@ class NavGraphSearchState : public fawkes::AStarState
 
   /** Determine euclidean cost between two nodes.
    * Note that the given notes are assumed to be adjacent nodes.
-   * @param from originating node
+   * @param from originating path
    * @param to destination node
    * @return cost from @p from to @p to.
    */
@@ -71,7 +71,7 @@ class NavGraphSearchState : public fawkes::AStarState
   }
 
   /** Determine straight line estimate between two nodes.
-   * @param node node to query heuristic value for
+   * @param path path to query heuristic value for
    * @param goal goal node to get estimate for
    * @return estimate of cost from @p node to @p goal.
    */
